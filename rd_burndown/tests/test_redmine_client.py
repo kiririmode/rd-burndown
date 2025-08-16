@@ -584,7 +584,7 @@ class TestIntegration:
 
         config = Config()
         config.redmine.url = "https://redmine.example.com/"
-        config.redmine.api_key = "integration-test-key"  # pragma: allowlist secret
+        config.redmine.api_key = "integration-test-key-789"  # pragma: allowlist secret
         config.redmine.timeout = 45
         config.redmine.verify_ssl = False
 
@@ -592,7 +592,7 @@ class TestIntegration:
 
         # 設定値が正しく適用されているか確認
         assert client.base_url == "https://redmine.example.com"
-        assert client.api_key == "integration-test-key"  # pragma: allowlist secret
+        assert client.api_key == "integration-test-key-789"  # pragma: allowlist secret
         assert client.timeout == 45
         assert client.verify_ssl is False
 
@@ -600,7 +600,7 @@ class TestIntegration:
         mock_session.headers.update.assert_called_once_with(
             {
                 "Content-Type": "application/json",
-                "X-Redmine-API-Key": "integration-test-key",
+                "X-Redmine-API-Key": "integration-test-key-789",
             }
         )
 

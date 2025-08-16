@@ -142,7 +142,7 @@ class TestConfigManager:
             test_config = {
                 "redmine": {
                     "url": "https://test.example.com",
-                    "api_key": "test-key",  # pragma: allowlist secret
+                    "api_key": "test-api-key-123",  # pragma: allowlist secret
                     "timeout": 45,
                 },
                 "output": {
@@ -160,7 +160,7 @@ class TestConfigManager:
 
             # 読み込まれた設定の確認
             assert config.redmine.url == "https://test.example.com"
-            assert config.redmine.api_key == "test-key"  # pragma: allowlist secret
+            assert config.redmine.api_key == "test-api-key-123"  # pragma: allowlist secret
             assert config.redmine.timeout == 45
             assert config.output.default_format == "svg"
             assert config.output.default_width == 1600
@@ -285,6 +285,7 @@ class TestIntegration:
 
             # 3. 設定変更
             config.redmine.url = "https://modified.example.com"
+            config.redmine.api_key = "test-workflow-key"  # pragma: allowlist secret
             config.output.default_width = 1920
 
             # 4. 設定保存
@@ -314,7 +315,7 @@ class TestIntegration:
             file_config = {
                 "redmine": {
                     "url": "http://file.example.com",
-                    "api_key": "file-key",  # pragma: allowlist secret
+                    "api_key": "file-api-key-456",  # pragma: allowlist secret
                 },
                 "output": {
                     "default_format": "png",
@@ -332,6 +333,6 @@ class TestIntegration:
             # 環境変数が優先されているか確認
             assert config.redmine.url == "http://env-override.com"  # 環境変数
             # pragma: allowlist secret
-            assert config.redmine.api_key == "file-key"  # ファイル
+            assert config.redmine.api_key == "file-api-key-456"  # ファイル
             assert config.output.default_format == "svg"  # 環境変数
             assert config.output.default_width == 1200  # ファイル

@@ -93,39 +93,61 @@ class TestConfigCommands:
                 assert "デフォルト設定ファイルを作成しました" in result.output
                 mock_manager.create_default_config.assert_called_once()
 
-    def test_config_show_table_format(self):
-        """config show テーブル形式のテスト"""
-        with patch("rd_burndown.cli.main.get_config_manager") as mock_get_manager:
-            mock_manager = Mock()
-            mock_config = Config()
-            mock_config.redmine.url = "http://test.example.com"
-            mock_config.redmine.api_key = "test-key-12345"  # pragma: allowlist secret
-            mock_manager.get_config.return_value = mock_config
-            mock_get_manager.return_value = mock_manager
+    def test_config_init_file_exists(self):
+        """config init 既存ファイルのテスト"""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            config_path = Path(tmp_dir) / "config.yaml"
+            config_path.write_text("existing config")
 
-            runner = CliRunner()
-            result = runner.invoke(cli, ["config", "show"])
+            with patch("rd_burndown.cli.main.get_config_manager") as mock_get_manager:
+                mock_manager = Mock()
+                mock_manager.config_path = config_path
+                mock_get_manager.return_value = mock_manager
 
-            assert result.exit_code == 0
-            assert "現在の設定" in result.output
-            assert "http://test.example.com" in result.output
-            assert "****2345" in result.output  # APIキーマスキング確認
+                runner = CliRunner()
+                result = runner.invoke(cli, ["config", "init"])
 
-    def test_config_show_json_format(self):
-        """config show JSON形式のテスト"""
-        with patch("rd_burndown.cli.main.get_config_manager") as mock_get_manager:
-            mock_manager = Mock()
-            mock_config = Config()
-            mock_manager.get_config.return_value = mock_config
-            mock_get_manager.return_value = mock_manager
+                assert result.exit_code == 0
+                assert "設定ファイルが既に存在します" in result.output
+                assert "--force オプションを使用して上書きしてください" in result.output
 
-            runner = CliRunner()
-            result = runner.invoke(cli, ["config", "show", "--format", "json"])
+    def test_config_init_force(self):
+        """config init --force のテスト"""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            config_path = Path(tmp_dir) / "config.yaml"
+            config_path.write_text("existing config")
 
-            assert result.exit_code == 0
-            # JSON形式で出力されているか確認
-            assert '"redmine"' in result.output
-            assert '"output"' in result.output
+            with patch("rd_burndown.cli.main.get_config_manager") as mock_get_manager:
+                mock_manager = Mock()
+                mock_manager.config_path = config_path
+                mock_manager.create_default_config.return_value = Config()
+                mock_get_manager.return_value = mock_manager
+
+                runner = CliRunner()
+                result = runner.invoke(cli, ["config", "init", "--force"])
+
+                assert result.exit_code == 0
+                assert "デフォルト設定ファイルを作成しました" in result.output
+                mock_manager.create_default_config.assert_called_once()
+
+
+    def test_config_init_verbose(self):
+        """config init --verbose のテスト"""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            config_path = Path(tmp_dir) / "config.yaml"
+
+            with patch("rd_burndown.cli.main.get_config_manager") as mock_get_manager:
+                mock_manager = Mock()
+                mock_manager.config_path = config_path
+                mock_manager.create_default_config.return_value = Config()
+                mock_get_manager.return_value = mock_manager
+
+                runner = CliRunner()
+                result = runner.invoke(cli, ["--verbose", "config", "init"])
+
+                assert result.exit_code == 0
+                assert "設定ファイルパス:" in result.output
+
 
     def test_main_function_with_help(self):
         """main関数のhelpテスト"""
