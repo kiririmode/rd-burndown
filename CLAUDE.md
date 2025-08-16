@@ -6,9 +6,55 @@
 
 本プロジェクトは、Redmine v4系で管理されたチケットの工数に対するバーンダウンチャートを作成するツールです。
 
+## ツール仕様
+
+### 基本構成
+
+- **形式**: CLIツール
+- **出力形式**: PNG画像（モダンなデザイン）
+- **対象**: Redmine v4系のチケット工数データ
+
+### バーンダウンチャートの仕様
+
+#### 出力要件
+
+- **フォーマット**: PNG画像
+- **デザイン**: モダンで視認性の高いスタイル
+- **フォント**: 日本語対応フォント必須
+- **文字化け対策**: 日本語ラベル・タイトルの適切な表示
+
+#### チャート要素
+
+1. **理想線（Ideal Line）**
+   - プロジェクト開始日から期限日まで
+   - 初期総工数から0へと右下がりの直線
+   - 理想的な工数消化ペースを表示
+
+2. **現実線（Actual Line）**
+   - 1日毎の残り工数をプロット
+   - 実際の進捗状況を可視化
+   - チケットのステータス変更に基づく工数減算
+
+#### データ取得
+
+- **ソース**: RedmineのREST API
+- **対象データ**:
+  - チケットの予定工数（estimated_hours）
+  - チケットのステータス変更履歴
+  - バージョン・マイルストーン情報
+- **期間**: プロジェクト開始日〜終了日（または現在日）
+
+### 技術要件
+
+- **API認証**: Redmine APIキーによる認証
+- **データ処理**: チケット履歴の時系列分析
+- **グラフ描画**: Python可視化ライブラリ使用
+- **日本語対応**: フォント設定とエンコーディング対応
+
 ## Redmine環境
 
 ### 起動方法
+
 ```bash
 # コンテナ起動
 docker compose up -d
@@ -18,41 +64,50 @@ docker compose up -d
 ```
 
 ### 動作確認方法
+
 1. コンテナ状態確認:
+
    ```bash
    docker ps
    ```
-   
+
 2. バージョン確認:
+
    ```bash
    docker exec redmine cat /usr/src/redmine/lib/redmine/version.rb
    ```
-   
+
 3. Web UI確認:
-   - アクセス: http://localhost:3000
+   - アクセス: <http://localhost:3000>
    - ログ確認: `docker logs redmine`
 
 ### 停止方法
+
 ```bash
 docker compose down
 ```
 
 ### 構成
+
 - Redmine 4.2.10 (ポート: 3000)
 - PostgreSQL 15 (内部ポート: 5432)
 
 ### 認証情報
+
 **管理者ユーザー（固定）:**
+
 - ログイン: `admin`
 - パスワード: `admin`
 - APIキー: `048110ce3e4a78b218aede2826b01fbc90dff412`
 
 **特徴:**
+
 - データはボリュームに永続化されるため、コンテナ再起動後も認証情報は保持される
 - 初期化スクリプト（`./scripts/setup-admin.sh`）により、確実に同じAPIキーが設定される
 - APIキーは開発用に固定値を使用
 
 **API使用例:**
+
 ```bash
 curl -H "X-Redmine-API-Key: 048110ce3e4a78b218aede2826b01fbc90dff412" \
      http://localhost:3000/issues.json
@@ -86,17 +141,20 @@ curl -H "X-Redmine-API-Key: 048110ce3e4a78b218aede2826b01fbc90dff412" \
 ## コミット
 
 **基本方針:**
+
 - 論理的なまとまりごとにコミットを実行
 - 日本語のConventional Commitフォーマットを使用
 
 **フォーマット:**
-```
+
+```text
 <type>: <description>
 
 [optional body]
 ```
 
 **タイプ:**
+
 - `feat`: 新機能
 - `fix`: バグ修正
 - `docs`: ドキュメント変更
@@ -106,7 +164,8 @@ curl -H "X-Redmine-API-Key: 048110ce3e4a78b218aede2826b01fbc90dff412" \
 - `chore`: ビルド・設定変更
 
 **例:**
-```
+
+```text
 feat: Redmineバーンダウンチャート作成機能を追加
 
 - チケット工数データの取得APIを実装
