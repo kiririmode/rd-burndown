@@ -130,7 +130,6 @@ class TestConfigCommands:
                 assert "デフォルト設定ファイルを作成しました" in result.output
                 mock_manager.create_default_config.assert_called_once()
 
-
     def test_config_init_verbose(self):
         """config init --verbose のテスト"""
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -147,7 +146,6 @@ class TestConfigCommands:
 
                 assert result.exit_code == 0
                 assert "設定ファイルパス:" in result.output
-
 
     def test_main_function_with_help(self):
         """main関数のhelpテスト"""

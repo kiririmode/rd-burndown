@@ -215,6 +215,7 @@ config.yaml
 *.db
 *.sqlite
 *.sqlite3
+cache/
 
 # MCP Servers
 .serena/

@@ -160,7 +160,9 @@ class TestConfigManager:
 
             # 読み込まれた設定の確認
             assert config.redmine.url == "https://test.example.com"
-            assert config.redmine.api_key == "test-api-key-123"  # pragma: allowlist secret
+            assert (
+                config.redmine.api_key == "test-api-key-123"
+            )  # pragma: allowlist secret
             assert config.redmine.timeout == 45
             assert config.output.default_format == "svg"
             assert config.output.default_width == 1600
