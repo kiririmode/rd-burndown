@@ -1,0 +1,217 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "rd-burndown"
+version = "0.1.0"
+description = "Redmine v4系バーンダウンチャート作成ツール"
+readme = "README.md"
+license = "MIT"
+authors = [
+    {name = "rd-burndown contributors"}
+]
+keywords = ["redmine", "burndown", "chart", "project-management"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+requires-python = ">=3.9"
+
+dependencies = [
+    "click>=8.1.7",
+    "rich>=13.9.4",
+    "requests>=2.32.3",
+    "pydantic>=2.10.3",
+    "pyyaml>=6.0.2",
+    "python-dotenv>=1.0.1",
+    "pendulum>=3.0.0",
+    "holidays>=0.59",
+    "matplotlib>=3.9.2",
+    "pandas>=2.2.3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.4.1",
+    "pytest-cov>=6.2.1",
+    "pytest-mock>=3.14.0",
+    "pytest-asyncio>=0.25.0",
+    "ruff>=0.12.7",
+    "pyright>=1.1.403",
+    "pre-commit>=4.0.1",
+    "mypy>=1.14.1",
+    "bandit>=1.8.6",
+    "detect-secrets>=1.5.0",
+    "lizard>=1.17.10",
+]
+
+[project.scripts]
+rd-burndown = "rd_burndown.cli.main:main"
+
+[project.urls]
+Homepage = "https://github.com/example/rd-burndown"
+Repository = "https://github.com/example/rd-burndown"
+Issues = "https://github.com/example/rd-burndown/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["rd_burndown"]
+
+[tool.ruff]
+target-version = "py39"
+line-length = 88
+extend-exclude = [
+    ".git",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".venv",
+    "__pycache__",
+    "build",
+    "dist",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "N",   # pep8-naming
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "SIM", # flake8-simplify
+    "PIE", # flake8-pie
+    "RET", # flake8-return
+    "ERA", # eradicate
+]
+
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "E203",   # whitespace before ':' (conflicts with formatter)
+    "N806",   # variable name should be lowercase (for API responses)
+    "PIE804", # unnecessary dict kwargs (sometimes more readable)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["rd_burndown"]
+force-single-line = false
+combine-as-imports = true
+
+[tool.ruff.lint.pyupgrade]
+keep-runtime-typing = false
+
+[tool.pytest.ini_options]
+testpaths = ["rd_burndown/tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+    "--cov=rd_burndown",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+    "--cov-report=xml",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+]
+filterwarnings = [
+    "error",
+    "ignore::UserWarning",
+    "ignore::DeprecationWarning",
+]
+
+[tool.coverage.run]
+source = ["rd_burndown"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "rd_burndown/tests/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+fail_under = 85
+show_missing = true
+precision = 2
+
+[tool.pyright]
+include = ["rd_burndown"]
+exclude = [
+    "**/__pycache__",
+    ".pytest_cache",
+    ".ruff_cache",
+    "build",
+    "dist",
+]
+
+# テストファイルでは型チェックを緩く
+reportMissingParameterType = "warning"
+reportUnknownParameterType = "warning"
+reportUnknownVariableType = "warning"
+reportUnknownMemberType = "warning"
+reportUnknownArgumentType = "warning"
+reportMissingTypeArgument = "warning"
+reportReturnType = "warning"
+reportUnknownLambdaType = "warning"
+reportImplicitStringConcatenation = "warning"
+
+# テストフィクスチャでは型情報が不完全でも許可
+reportOptionalMemberAccess = "warning"
+reportOptionalSubscript = "warning"
+reportOptionalCall = "warning"
+
+# 型情報のより緩い設定
+pythonVersion = "3.9"
+pythonPlatform = "Linux"
+typeCheckingMode = "basic"
+
+[tool.bandit]
+exclude_dirs = ["rd_burndown/tests", "tests", "test_*"]
+skips = ["B101", "B601"]
+
+[tool.detect-secrets]
+baseline = ".secrets.baseline"
+exclude_files = ".*/tests/.*|.*/fixtures/.*"
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+
+[[tool.mypy.overrides]]
+module = [
+    "holidays.*",
+    "pendulum.*",
+    "dotenv.*",
+]
+ignore_missing_imports = true

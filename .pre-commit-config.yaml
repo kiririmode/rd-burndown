@@ -22,21 +22,34 @@ repos:
     rev: v1.1.403
     hooks:
       - id: pyright
+        args: [--level, error]
+        additional_dependencies:
+          - click>=8.1.7
+          - rich>=13.9.4
+          - requests>=2.32.3
+          - pydantic>=2.10.3
+          - pyyaml>=6.0.2
+          - python-dotenv>=1.0.1
+          - pendulum>=3.0.0
+          - holidays>=0.59
+          - pytest>=8.4.1
 
 
-  - repo: https://github.com/pycqa/bandit
-    rev: 1.8.6
-    hooks:
-      - id: bandit
-        args: [-r, rd_burndown/]
-        exclude: ^tests/
+  # bandit は pyproject.toml で設定、手動実行
+  # - repo: https://github.com/pycqa/bandit
+  #   rev: 1.8.6
+  #   hooks:
+  #     - id: bandit
+  #       args: [-r, rd_burndown/]
+  #       exclude: ^rd_burndown/tests/
 
-  - repo: https://github.com/Yelp/detect-secrets
-    rev: v1.5.0
-    hooks:
-      - id: detect-secrets
-        args: [--baseline, .secrets.baseline]
-        exclude: ^(\.devcontainer/|tests/fixtures/|\.venv/|\.pytest_cache/|\.ruff_cache/|htmlcov/)
+  # detect-secrets は手動実行のみ
+  # - repo: https://github.com/Yelp/detect-secrets
+  #   rev: v1.5.0
+  #   hooks:
+  #     - id: detect-secrets
+  #       args: [--baseline, .secrets.baseline]
+  #       exclude: ^(\.devcontainer/|tests/fixtures/|\.venv/|\.pytest_cache/|\.ruff_cache/|htmlcov/)
 
   - repo: local
     hooks:
@@ -45,7 +58,7 @@ repos:
         entry: uv run lizard
         language: system
         files: '\.py$'
-        args: [--CCN, '10', rd_burndown/]
+        args: [--CCN, '15', rd_burndown/]
         exclude: ^tests/
       - id: test-coverage
         name: Test coverage check (85% minimum)

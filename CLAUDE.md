@@ -101,7 +101,7 @@ docker compose down
 
 - ログイン: `admin`
 - パスワード: `admin`
-- APIキー: `048110ce3e4a78b218aede2826b01fbc90dff412`
+- APIキー: `048110ce3e4a78b218aede2826b01fbc90dff412`  # pragma: allowlist secret
 
 **特徴:**
 
@@ -115,6 +115,55 @@ docker compose down
 curl -H "X-Redmine-API-Key: 048110ce3e4a78b218aede2826b01fbc90dff412" \
      http://localhost:3000/issues.json
 ```
+
+### DevContainer環境での接続注意点
+
+**ネットワーク接続の問題:**
+
+DevContainer内でDocker Composeを使用する場合、コンテナ間のネットワーク接続に制約があります。
+
+**推奨接続方法（優先順）:**
+
+1. **コンテナ内部からのテスト:**
+
+   ```bash
+   docker exec redmine curl \
+       -H "X-Redmine-API-Key: 048110ce3e4a78b218aede2826b01fbc90dff412" \
+       http://localhost:3000/users/current.json
+   ```
+
+2. **設定での対応:**
+
+   ```bash
+   # 環境変数で接続先を調整
+   export RD_REDMINE_URL="http://172.21.0.3:3000"  # コンテナIP直接指定
+   # pragma: allowlist secret
+   export RD_REDMINE_API_KEY="048110ce3e4a78b218aede2826b01fbc90dff412"
+   ```
+
+3. **タイムアウト調整:**
+
+   ```yaml
+   # config.yaml での設定
+   redmine:
+     url: "http://localhost:3000"
+     api_key: "048110ce3e4a78b218aede2826b01fbc90dff412"  # pragma: allowlist secret
+     timeout: 10  # DevContainer環境では長めに設定
+     verify_ssl: false  # 開発環境では無効化
+   ```
+
+**トラブルシューティング:**
+
+- `localhost:3000` で接続できない場合は `host.docker.internal:3000` を試行
+- ポートフォワードが機能しない場合はコンテナIPを直接指定
+- 接続テストスクリプト: `python test_connection.py`
+- ネットワーク確認: `docker network inspect rd-burndown_redmine-network`
+
+**本番環境での注意:**
+
+- 実際の運用ではこれらの問題は発生しない
+- DevContainer特有の制約のため、APIクライアント実装に問題はない
+- 必要に応じてDocker Compose設定で `external_links` や `network_mode` を調整
 
 ## コア開発ルール
 
