@@ -118,8 +118,8 @@ class ProjectTimeline:
     project_name: str
     start_date: date
     end_date: Optional[date]
-    snapshots: list[DailySnapshot]
-    scope_changes: list[ScopeChange]
+    snapshots: list[dict[str, Any]]  # DictのままにしてDBアクセスしやすくする
+    scope_changes: list[dict[str, Any]]  # DictのままにしてDBアクセスしやすくする
 
     def ideal_line(self) -> list[tuple[date, float]]:
         """理想線計算"""
@@ -127,7 +127,7 @@ class ProjectTimeline:
             return []
 
         first_snapshot = self.snapshots[0]
-        initial_hours = first_snapshot.total_estimated_hours
+        initial_hours = first_snapshot["total_estimated_hours"]
 
         start = pendulum.instance(
             datetime.combine(self.start_date, datetime.min.time())
@@ -158,7 +158,11 @@ class ProjectTimeline:
     def actual_line(self) -> list[tuple[date, float]]:
         """実際線計算"""
         return [
-            (snapshot.date, snapshot.remaining_hours) for snapshot in self.snapshots
+            (
+                datetime.fromisoformat(snapshot["date"]).date(),
+                snapshot["remaining_hours"],
+            )
+            for snapshot in self.snapshots
         ]
 
     def dynamic_ideal_line(self) -> list[tuple[date, float]]:
@@ -169,37 +173,46 @@ class ProjectTimeline:
         dynamic_points: list[tuple[date, float]] = []
 
         for snapshot in self.snapshots:
-            remaining_days = (self.end_date - snapshot.date).days
+            snapshot_date = datetime.fromisoformat(snapshot["date"]).date()
+            remaining_days = (self.end_date - snapshot_date).days
             if remaining_days <= 0:
-                dynamic_points.append((snapshot.date, 0.0))
+                dynamic_points.append((snapshot_date, 0.0))
             else:
-                dynamic_points.append((snapshot.date, snapshot.remaining_hours))
+                dynamic_points.append((snapshot_date, snapshot["remaining_hours"]))
 
         return dynamic_points
 
     def scope_trend_line(self) -> list[tuple[date, float]]:
         """総工数推移線計算"""
         return [
-            (snapshot.date, snapshot.total_estimated_hours)
+            (
+                datetime.fromisoformat(snapshot["date"]).date(),
+                snapshot["total_estimated_hours"],
+            )
             for snapshot in self.snapshots
         ]
 
-    def get_snapshot_by_date(self, target_date: date) -> Optional[DailySnapshot]:
+    def get_snapshot_by_date(self, target_date: date) -> Optional[dict[str, Any]]:
         """指定日のスナップショット取得"""
         for snapshot in self.snapshots:
-            if snapshot.date == target_date:
+            snapshot_date = datetime.fromisoformat(snapshot["date"]).date()
+            if snapshot_date == target_date:
                 return snapshot
         return None
 
-    def get_scope_changes_by_date(self, target_date: date) -> list[ScopeChange]:
+    def get_scope_changes_by_date(self, target_date: date) -> list[dict[str, Any]]:
         """指定日のスコープ変更取得"""
-        return [change for change in self.scope_changes if change.date == target_date]
+        return [
+            change
+            for change in self.scope_changes
+            if datetime.fromisoformat(change["date"]).date() == target_date
+        ]
 
     def total_scope_change(self) -> float:
         """総スコープ変更量"""
-        return sum(change.hours_delta for change in self.scope_changes)
+        return sum(change["hours_delta"] for change in self.scope_changes)
 
-    def current_status(self) -> Optional[DailySnapshot]:
+    def current_status(self) -> Optional[dict[str, Any]]:
         """現在のステータス（最新スナップショット）"""
         return self.snapshots[-1] if self.snapshots else None
 
@@ -215,6 +228,8 @@ class RedmineProject:
     status: int
     created_on: datetime
     updated_on: datetime
+    start_date: Optional[date]
+    end_date: Optional[date]
     versions: list[dict[str, Any]]
     custom_fields: dict[str, Any]
 

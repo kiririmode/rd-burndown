@@ -1,15 +1,17 @@
 """Redmine API クライアント"""
 
+import contextlib
 import json
 import time
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Optional
 
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from ..utils.config import Config
+from rd_burndown.core.models import RedmineProject, TicketData
+from rd_burndown.utils.config import Config
 
 
 class RedmineAPIError(Exception):
@@ -258,3 +260,127 @@ class RedmineClient:
         """現在のユーザー情報取得"""
         response = self._make_request("GET", "/users/current.json")
         return response.get("user", {})
+
+    def get_project_data(self, project_id: int) -> RedmineProject:
+        """プロジェクトデータを取得してRedmineProjectオブジェクトとして返す"""
+        project_data = self.get_project(project_id)
+        versions = self.get_versions(project_id)
+
+        # 日付の解析
+        start_date = None
+        end_date = None
+
+        # カスタムフィールドから開始日・終了日を取得
+        custom_fields = project_data.get("custom_fields", [])
+        for field in custom_fields:
+            if field.get("name") == "開始日" and field.get("value"):
+                with contextlib.suppress(ValueError, TypeError):
+                    start_date = datetime.fromisoformat(field["value"]).date()
+            elif field.get("name") == "終了日" and field.get("value"):
+                with contextlib.suppress(ValueError, TypeError):
+                    end_date = datetime.fromisoformat(field["value"]).date()
+
+        return RedmineProject(
+            id=project_data["id"],
+            name=project_data["name"],
+            identifier=project_data["identifier"],
+            description=project_data.get("description", ""),
+            status=project_data.get("status", 1),
+            created_on=datetime.fromisoformat(project_data["created_on"]),
+            updated_on=datetime.fromisoformat(project_data["updated_on"]),
+            start_date=start_date,
+            end_date=end_date,
+            versions=versions,
+            custom_fields={
+                field["name"]: field.get("value") for field in custom_fields
+            },
+        )
+
+    def get_project_versions(self, project_id: int) -> list[dict[str, Any]]:
+        """プロジェクトバージョン一覧取得"""
+        return self.get_versions(project_id)
+
+    def get_project_tickets(
+        self, project_id: int, include_closed: bool = True
+    ) -> list[TicketData]:
+        """プロジェクトのチケット一覧を取得してTicketDataオブジェクトのリストとして返す"""
+        issues_data = self.get_all_project_issues(
+            project_id=project_id, include_closed=include_closed
+        )
+
+        tickets = []
+        for issue in issues_data:
+            tickets.append(self._convert_issue_to_ticket(issue))
+
+        return tickets
+
+    def get_updated_tickets(
+        self, project_id: int, since_date: Optional[date] = None
+    ) -> list[TicketData]:
+        """更新されたチケット一覧を取得"""
+        updated_since = None
+        if since_date:
+            updated_since = datetime.combine(since_date, datetime.min.time())
+
+        issues_data = self.get_all_project_issues(
+            project_id=project_id, updated_since=updated_since, include_closed=True
+        )
+
+        tickets = []
+        for issue in issues_data:
+            tickets.append(self._convert_issue_to_ticket(issue))
+
+        return tickets
+
+    def _convert_issue_to_ticket(self, issue: dict[str, Any]) -> TicketData:
+        """IssueデータをTicketDataオブジェクトに変換"""
+        # 担当者情報
+        assigned_to_id = None
+        assigned_to_name = None
+        assigned_to = issue.get("assigned_to")
+        if assigned_to:
+            assigned_to_id = assigned_to.get("id")
+            assigned_to_name = assigned_to.get("name")
+
+        # バージョン情報
+        version_id = None
+        version_name = None
+        fixed_version = issue.get("fixed_version")
+        if fixed_version:
+            version_id = fixed_version.get("id")
+            version_name = fixed_version.get("name")
+
+        # カスタムフィールド
+        custom_fields = {}
+        for field in issue.get("custom_fields", []):
+            custom_fields[field["name"]] = field.get("value")
+
+        return TicketData(
+            id=issue["id"],
+            subject=issue["subject"],
+            estimated_hours=issue.get("estimated_hours"),
+            created_on=datetime.fromisoformat(issue["created_on"]),
+            updated_on=datetime.fromisoformat(issue["updated_on"]),
+            status_id=issue["status"]["id"],
+            status_name=issue["status"]["name"],
+            assigned_to_id=assigned_to_id,
+            assigned_to_name=assigned_to_name,
+            project_id=issue["project"]["id"],
+            version_id=version_id,
+            version_name=version_name,
+            custom_fields=custom_fields,
+        )
+
+
+def get_redmine_client() -> RedmineClient:
+    """
+    Redmineクライアントの取得
+
+    Returns:
+        RedmineClient: Redmineクライアントインスタンス
+    """
+    from rd_burndown.utils.config import get_config_manager
+
+    config_manager = get_config_manager()
+    config = config_manager.load_config()
+    return RedmineClient(config)
