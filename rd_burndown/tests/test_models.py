@@ -1,6 +1,7 @@
 """データモデルのテスト"""
 
 from datetime import date, datetime
+from typing import Any
 
 from rd_burndown.core.models import (
     DailySnapshot,
@@ -246,45 +247,45 @@ class TestProjectTimeline:
         defaults.update(kwargs)
         return ProjectTimeline(**defaults)
 
-    def create_sample_snapshots(self) -> list[DailySnapshot]:
+    def create_sample_snapshots(self) -> list[dict[str, Any]]:
         """サンプルスナップショット群作成"""
         return [
-            DailySnapshot(
-                date=date(2024, 1, 1),
-                project_id=1,
-                total_estimated_hours=100.0,
-                completed_hours=0.0,
-                remaining_hours=100.0,
-                new_tickets_hours=0.0,
-                changed_hours=0.0,
-                deleted_hours=0.0,
-                active_ticket_count=10,
-                completed_ticket_count=0,
-            ),
-            DailySnapshot(
-                date=date(2024, 1, 15),
-                project_id=1,
-                total_estimated_hours=105.0,
-                completed_hours=30.0,
-                remaining_hours=75.0,
-                new_tickets_hours=5.0,
-                changed_hours=0.0,
-                deleted_hours=0.0,
-                active_ticket_count=8,
-                completed_ticket_count=2,
-            ),
-            DailySnapshot(
-                date=date(2024, 1, 31),
-                project_id=1,
-                total_estimated_hours=105.0,
-                completed_hours=105.0,
-                remaining_hours=0.0,
-                new_tickets_hours=0.0,
-                changed_hours=0.0,
-                deleted_hours=0.0,
-                active_ticket_count=0,
-                completed_ticket_count=10,
-            ),
+            {
+                "date": "2024-01-01",
+                "project_id": 1,
+                "total_estimated_hours": 100.0,
+                "completed_hours": 0.0,
+                "remaining_hours": 100.0,
+                "new_tickets_hours": 0.0,
+                "changed_hours": 0.0,
+                "deleted_hours": 0.0,
+                "active_ticket_count": 10,
+                "completed_ticket_count": 0,
+            },
+            {
+                "date": "2024-01-15",
+                "project_id": 1,
+                "total_estimated_hours": 105.0,
+                "completed_hours": 30.0,
+                "remaining_hours": 75.0,
+                "new_tickets_hours": 5.0,
+                "changed_hours": 0.0,
+                "deleted_hours": 0.0,
+                "active_ticket_count": 8,
+                "completed_ticket_count": 2,
+            },
+            {
+                "date": "2024-01-31",
+                "project_id": 1,
+                "total_estimated_hours": 105.0,
+                "completed_hours": 105.0,
+                "remaining_hours": 0.0,
+                "new_tickets_hours": 0.0,
+                "changed_hours": 0.0,
+                "deleted_hours": 0.0,
+                "active_ticket_count": 0,
+                "completed_ticket_count": 10,
+            },
         ]
 
     def test_create_timeline(self):
@@ -354,8 +355,8 @@ class TestProjectTimeline:
         snapshot = timeline.get_snapshot_by_date(date(2024, 1, 15))
 
         assert snapshot is not None
-        assert snapshot.date == date(2024, 1, 15)
-        assert snapshot.remaining_hours == 75.0
+        assert snapshot["date"] == "2024-01-15"
+        assert snapshot["remaining_hours"] == 75.0
 
     def test_get_snapshot_by_date_not_found(self):
         """指定日スナップショット取得（見つからない）のテスト"""
@@ -369,28 +370,28 @@ class TestProjectTimeline:
     def test_total_scope_change(self):
         """総スコープ変更量のテスト"""
         scope_changes = [
-            ScopeChange(
-                date=date(2024, 1, 10),
-                project_id=1,
-                change_type="added",
-                ticket_id=1,
-                ticket_subject="追加1",
-                hours_delta=8.0,
-                old_hours=None,
-                new_hours=8.0,
-                reason="要件追加",
-            ),
-            ScopeChange(
-                date=date(2024, 1, 20),
-                project_id=1,
-                change_type="removed",
-                ticket_id=2,
-                ticket_subject="削除1",
-                hours_delta=-4.0,
-                old_hours=4.0,
-                new_hours=None,
-                reason="要件削除",
-            ),
+            {
+                "date": "2024-01-10",
+                "project_id": 1,
+                "change_type": "added",
+                "ticket_id": 1,
+                "ticket_subject": "追加1",
+                "hours_delta": 8.0,
+                "old_hours": None,
+                "new_hours": 8.0,
+                "reason": "要件追加",
+            },
+            {
+                "date": "2024-01-20",
+                "project_id": 1,
+                "change_type": "removed",
+                "ticket_id": 2,
+                "ticket_subject": "削除1",
+                "hours_delta": -4.0,
+                "old_hours": 4.0,
+                "new_hours": None,
+                "reason": "要件削除",
+            },
         ]
 
         timeline = self.create_sample_timeline(scope_changes=scope_changes)
@@ -406,7 +407,7 @@ class TestProjectTimeline:
         current = timeline.current_status()
 
         assert current is not None
-        assert current.date == date(2024, 1, 31)  # 最新のスナップショット
+        assert current["date"] == "2024-01-31"  # 最新のスナップショット
 
     def test_current_status_no_snapshots(self):
         """現在ステータス取得（スナップショットなし）のテスト"""
@@ -430,6 +431,8 @@ class TestRedmineProject:
             "status": 1,
             "created_on": datetime(2024, 1, 1, 9, 0, 0),
             "updated_on": datetime(2024, 1, 15, 17, 0, 0),
+            "start_date": date(2024, 1, 1),
+            "end_date": date(2024, 1, 31),
             "versions": [
                 {"id": 1, "name": "v1.0.0", "status": "open"},
                 {"id": 2, "name": "v1.1.0", "status": "open"},
@@ -511,6 +514,8 @@ class TestProjectSummary:
             status=1,
             created_on=datetime.now(),
             updated_on=datetime.now(),
+            start_date=date(2024, 1, 1),
+            end_date=date(2024, 1, 31),
             versions=[],
             custom_fields={},
         )
@@ -617,17 +622,17 @@ class TestProjectSummary:
             end_date=date(2024, 1, 31),
             snapshots=[],
             scope_changes=[
-                ScopeChange(
-                    date=date(2024, 1, 10),
-                    project_id=1,
-                    change_type="added",
-                    ticket_id=1,
-                    ticket_subject="追加",
-                    hours_delta=10.0,
-                    old_hours=None,
-                    new_hours=10.0,
-                    reason="要件追加",
-                ),
+                {
+                    "date": "2024-01-10",
+                    "project_id": 1,
+                    "change_type": "added",
+                    "ticket_id": 1,
+                    "ticket_subject": "追加",
+                    "hours_delta": 10.0,
+                    "old_hours": None,
+                    "new_hours": 10.0,
+                    "reason": "要件追加",
+                },
             ],
         )
 

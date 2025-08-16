@@ -1,6 +1,7 @@
 """pytest設定とフィクスチャ"""
 
 import tempfile
+from dataclasses import asdict
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any
@@ -243,6 +244,8 @@ def sample_project() -> RedmineProject:
         status=1,
         created_on=datetime(2024, 1, 1, 9, 0, 0),
         updated_on=datetime(2024, 1, 15, 17, 0, 0),
+        start_date=date(2024, 1, 1),
+        end_date=date(2024, 3, 31),
         versions=[
             {"id": 1, "name": "v1.0.0", "status": "open"},
             {"id": 2, "name": "v1.1.0", "status": "open"},
@@ -262,8 +265,8 @@ def sample_timeline(
         project_name="テストプロジェクト",
         start_date=date(2024, 1, 1),
         end_date=date(2024, 1, 31),
-        snapshots=sample_snapshots,
-        scope_changes=sample_scope_changes,
+        snapshots=[asdict(snapshot) for snapshot in sample_snapshots],
+        scope_changes=[asdict(change) for change in sample_scope_changes],
     )
 
 

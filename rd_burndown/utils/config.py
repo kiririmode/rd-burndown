@@ -1,5 +1,6 @@
 """設定管理ユーティリティ"""
 
+import logging
 import os
 from pathlib import Path
 from typing import Any, Optional
@@ -7,6 +8,12 @@ from typing import Any, Optional
 import yaml
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
+
+logger = logging.getLogger(__name__)
+
+
+class ConfigError(Exception):
+    """設定関連エラー"""
 
 
 class RedmineConfig(BaseModel):
@@ -109,14 +116,28 @@ class ConfigManager:
 
         config_dict: dict[str, Any] = {}
 
-        if self.config_path.exists():
-            with open(self.config_path, encoding="utf-8") as f:
-                config_dict = yaml.safe_load(f) or {}
+        try:
+            if self.config_path.exists():
+                with open(self.config_path, encoding="utf-8") as f:
+                    config_dict = yaml.safe_load(f) or {}
 
-        config_dict = self._apply_env_overrides(config_dict)
+            config_dict = self._apply_env_overrides(config_dict)
 
-        self._config = Config(**config_dict)
-        return self._config
+            # 設定値バリデーション
+            self._validate_config_dict(config_dict)
+
+            self._config = Config(**config_dict)
+            return self._config
+
+        except yaml.YAMLError as e:
+            logger.error(f"Failed to parse config file: {e}")
+            raise ConfigError(f"Invalid YAML in config file: {e}") from e
+        except ValueError as e:
+            logger.error(f"Invalid configuration values: {e}")
+            raise ConfigError(f"Invalid configuration values: {e}") from e
+        except Exception as e:
+            logger.error(f"Failed to load config: {e}")
+            raise ConfigError(f"Failed to load config: {e}") from e
 
     def _apply_env_overrides(self, config_dict: dict[str, Any]) -> dict[str, Any]:
         """環境変数でオーバーライド"""
@@ -144,6 +165,73 @@ class ConfigManager:
                     config_dict[section][key] = env_value
 
         return config_dict
+
+    def _validate_config_dict(self, config_dict: dict[str, Any]) -> None:
+        """設定値のバリデーション"""
+        # Redmine設定の検証
+        if "redmine" in config_dict:
+            redmine_config = config_dict["redmine"]
+
+            # URL検証
+            if "url" in redmine_config:
+                url = redmine_config["url"]
+                if not isinstance(url, str) or not url.strip():
+                    raise ValueError("Redmine URL must be a non-empty string")
+                if not url.startswith(("http://", "https://")):
+                    raise ValueError("Redmine URL must start with http:// or https://")
+
+            # API キー検証
+            if "api_key" in redmine_config:
+                api_key = redmine_config["api_key"]
+                if not isinstance(api_key, str) or not api_key.strip():
+                    raise ValueError("Redmine API key must be a non-empty string")
+                if len(api_key.strip()) < 10:
+                    raise ValueError("Redmine API key appears to be too short")
+
+            # タイムアウト検証
+            if "timeout" in redmine_config:
+                timeout = redmine_config["timeout"]
+                if not isinstance(timeout, (int, float)) or timeout <= 0:
+                    raise ValueError("Redmine timeout must be a positive number")
+
+        # データ設定の検証
+        if "data" in config_dict:
+            data_config = config_dict["data"]
+
+            # キャッシュTTL検証
+            if "cache_ttl_hours" in data_config:
+                ttl = data_config["cache_ttl_hours"]
+                if not isinstance(ttl, int) or ttl < 0:
+                    raise ValueError("Cache TTL must be a non-negative integer")
+
+            # バッチサイズ検証
+            if "max_batch_size" in data_config:
+                batch_size = data_config["max_batch_size"]
+                if (
+                    not isinstance(batch_size, int)
+                    or batch_size <= 0
+                    or batch_size > 1000
+                ):
+                    raise ValueError("Max batch size must be between 1 and 1000")
+
+        # 出力設定の検証
+        if "output" in config_dict:
+            output_config = config_dict["output"]
+
+            # DPI検証
+            if "default_dpi" in output_config:
+                dpi = output_config["default_dpi"]
+                if not isinstance(dpi, int) or dpi < 72 or dpi > 600:
+                    raise ValueError("DPI must be between 72 and 600")
+
+            # 画像サイズ検証
+            for dimension in ["default_width", "default_height"]:
+                if dimension in output_config:
+                    size = output_config[dimension]
+                    if not isinstance(size, int) or size < 100 or size > 5000:
+                        raise ValueError(
+                            f"{dimension} must be between 100 and 5000 pixels"
+                        )
 
     def save_config(self, config: Config) -> None:
         """設定を保存"""

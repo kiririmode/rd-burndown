@@ -1,7 +1,7 @@
 """日付処理ユーティリティ"""
 
 from datetime import date, datetime, timedelta
-from typing import Optional
+from typing import Any, Optional
 
 import holidays
 import pendulum
@@ -14,7 +14,7 @@ def get_business_days(
     business_days: list[date] = []
     current_date = start_date
 
-    country_holidays = holidays.country_holidays(country) if exclude_holidays else {}
+    country_holidays: Any = holidays.country_holidays(country) if exclude_holidays else {}
 
     while current_date <= end_date:
         # 土日をスキップし、かつ祝日でない場合のみ追加
@@ -97,7 +97,7 @@ def add_business_days(start_date: date, days: int, country: str = "JP") -> date:
     """営業日加算"""
     current_date = start_date
     added_days = 0
-    country_holidays = holidays.country_holidays(country)
+    country_holidays: Any = holidays.country_holidays(country)
 
     while added_days < days:
         current_date += timedelta(days=1)
@@ -114,8 +114,15 @@ def is_business_day(check_date: date, country: str = "JP") -> bool:
     if check_date.weekday() >= 5:  # 土日
         return False
 
-    country_holidays = holidays.country_holidays(country)
+    country_holidays: Any = holidays.country_holidays(country)
     return check_date not in country_holidays
+
+
+def get_business_days_between(
+    start_date: date, end_date: date, country: str = "JP"
+) -> int:
+    """営業日数計算"""
+    return len(get_business_days(start_date, end_date, country))
 
 
 def get_project_duration(
