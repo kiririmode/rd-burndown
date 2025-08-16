@@ -18,6 +18,6 @@
     "source=${env:HOME}/.aws,target=/home/vscode/.aws,type=bind"
   ],
   "runArgs": [
-    "--network=redmine-burndown_redmine-network"
+    "--network=rd-burndown_redmine-network"
   ]
 }
