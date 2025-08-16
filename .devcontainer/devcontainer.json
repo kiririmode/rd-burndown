@@ -1,0 +1,23 @@
+{
+  "name": "Redmine Development",
+  "dockerFile": "Dockerfile",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {},
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+      "enableNonRootDocker": "true"
+    },
+    "ghcr.io/devcontainers/features/go:1": {
+      "version": "latest"
+    },
+    "ghcr.io/devcontainers-extra/features/direnv:1": {},
+    "ghcr.io/devcontainers/features/rust:1.5.0": {}
+  },
+  "remoteUser": "vscode",
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "mounts": [
+    "source=${env:HOME}/.aws,target=/home/vscode/.aws,type=bind"
+  ],
+  "runArgs": [
+    "--network=redmine-burndown_redmine-network"
+  ]
+}
