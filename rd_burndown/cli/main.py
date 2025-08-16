@@ -10,6 +10,9 @@ from rich.traceback import install
 
 from .. import __version__
 from ..utils.config import get_config_manager
+from .chart import add_chart_commands
+from .data import add_data_commands
+from .project import add_project_commands
 
 # Rich traceback 有効化
 install(show_locals=True)
@@ -32,24 +35,6 @@ def cli(ctx: click.Context, config: Optional[Path], verbose: bool) -> None:
     ctx.ensure_object(dict)
     ctx.obj["verbose"] = verbose
     ctx.obj["config_manager"] = get_config_manager(config)
-
-
-@cli.group()
-@click.pass_context
-def project(ctx: click.Context) -> None:
-    """プロジェクト管理コマンド"""
-
-
-@cli.group()
-@click.pass_context
-def chart(ctx: click.Context) -> None:
-    """チャート生成コマンド"""
-
-
-@cli.group()
-@click.pass_context
-def data(ctx: click.Context) -> None:
-    """データ管理コマンド"""
 
 
 @cli.group()
@@ -190,6 +175,12 @@ def show(ctx: click.Context, output_format: str, section: Optional[str]) -> None
                 table.add_row(section_name, "", str(section_values))
 
         console.print(table)
+
+
+# サブコマンドを追加（モジュールレベルで実行）
+add_project_commands(cli)
+add_chart_commands(cli)
+add_data_commands(cli)
 
 
 def main() -> None:
