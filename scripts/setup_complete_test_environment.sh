@@ -164,34 +164,175 @@ echo "6️⃣ テストチケットの作成..."
 ./scripts/create_test_issues.sh > /dev/null
 
 echo ""
-echo "🎉 Redmineテスト環境のセットアップが完了しました！"
-echo ""
-echo "📋 作成された内容:"
+echo "7️⃣ セットアップ完了テストを実行中..."
 
-# 最終結果確認
-ISSUES_RESPONSE=\$(docker exec redmine curl -s -H "X-Redmine-API-Key: $API_KEY" "$BASE_URL/projects/test-project/issues.json")
-ISSUE_COUNT=\$(echo "\$ISSUES_RESPONSE" | python3 -c "import sys, json; print(json.load(sys.stdin).get('total_count', 0))" 2>/dev/null || echo "9")
-TOTAL_HOURS=\$(echo "\$ISSUES_RESPONSE" | python3 -c "
+# テスト関数の定義
+test_redmine_connection() {
+    echo "   🔍 Redmine接続テスト..."
+    if docker exec redmine curl -s -f "$BASE_URL" > /dev/null 2>&1; then
+        echo "   ✅ Redmine Web UI接続OK"
+        return 0
+    else
+        echo "   ❌ Redmine Web UI接続NG"
+        return 1
+    fi
+}
+
+test_api_access() {
+    echo "   🔍 API接続テスト..."
+    API_RESPONSE=$(docker exec redmine curl -s -H "X-Redmine-API-Key: $API_KEY" "$BASE_URL/users/current.json" 2>/dev/null)
+    if echo "$API_RESPONSE" | grep -q "user"; then
+        echo "   ✅ API接続OK（管理者認証成功）"
+        return 0
+    else
+        echo "   ❌ API接続NG（APIキー認証失敗）"
+        return 1
+    fi
+}
+
+test_project_creation() {
+    echo "   🔍 プロジェクト作成テスト..."
+    PROJECT_RESPONSE=$(docker exec redmine curl -s -H "X-Redmine-API-Key: $API_KEY" "$BASE_URL/projects/test-project.json" 2>/dev/null)
+    if echo "$PROJECT_RESPONSE" | grep -q "test-project"; then
+        echo "   ✅ テストプロジェクト作成OK"
+        return 0
+    else
+        echo "   ❌ テストプロジェクト作成NG"
+        return 1
+    fi
+}
+
+test_versions_creation() {
+    echo "   🔍 バージョン作成テスト..."
+    VERSIONS_RESPONSE=$(docker exec redmine curl -s -H "X-Redmine-API-Key: $API_KEY" "$BASE_URL/projects/test-project/versions.json" 2>/dev/null)
+    VERSION_COUNT=$(echo "$VERSIONS_RESPONSE" | python3 -c "import sys, json; print(len(json.load(sys.stdin).get('versions', [])))" 2>/dev/null || echo "0")
+
+    if [ "$VERSION_COUNT" -ge 3 ]; then
+        echo "   ✅ バージョン作成OK（$VERSION_COUNT件）"
+        return 0
+    else
+        echo "   ❌ バージョン作成NG（期待値: 3件、実際: $VERSION_COUNT件）"
+        return 1
+    fi
+}
+
+test_issues_creation() {
+    echo "   🔍 チケット作成テスト..."
+    ISSUES_RESPONSE=$(docker exec redmine curl -s -H "X-Redmine-API-Key: $API_KEY" "$BASE_URL/projects/test-project/issues.json" 2>/dev/null)
+    ISSUE_COUNT=$(echo "$ISSUES_RESPONSE" | python3 -c "import sys, json; print(json.load(sys.stdin).get('total_count', 0))" 2>/dev/null || echo "0")
+
+    if [ "$ISSUE_COUNT" -ge 8 ]; then
+        echo "   ✅ チケット作成OK（$ISSUE_COUNT件）"
+        return 0
+    else
+        echo "   ❌ チケット作成NG（期待値: 8件以上、実際: $ISSUE_COUNT件）"
+        return 1
+    fi
+}
+
+test_estimated_hours() {
+    echo "   🔍 予定工数設定テスト..."
+    ISSUES_RESPONSE=$(docker exec redmine curl -s -H "X-Redmine-API-Key: $API_KEY" "$BASE_URL/projects/test-project/issues.json" 2>/dev/null)
+    TOTAL_HOURS=$(echo "$ISSUES_RESPONSE" | python3 -c "
 import sys, json
 try:
     data = json.load(sys.stdin)
     total = sum(float(issue.get('estimated_hours', 0)) for issue in data.get('issues', []) if issue.get('estimated_hours'))
     print(f'{total:.1f}')
 except:
-    print('122.0')
-" 2>/dev/null || echo "122.0")
+    print('0.0')
+" 2>/dev/null || echo "0.0")
 
-echo "   ✅ プロジェクト: テストプロジェクト (test-project)"
-echo "   ✅ バージョン: v1.0.0, v1.1.0, v2.0.0"
-echo "   ✅ チケット数: \$ISSUE_COUNT件"
-echo "   ✅ 総予定工数: \${TOTAL_HOURS}時間"
+    HOURS_CHECK=$(python3 -c "print('1' if float('$TOTAL_HOURS') > 100 else '0')" 2>/dev/null || echo "0")
+    if [ "$HOURS_CHECK" = "1" ]; then
+        echo "   ✅ 予定工数設定OK（合計: ${TOTAL_HOURS}時間）"
+        return 0
+    else
+        echo "   ❌ 予定工数設定NG（期待値: 100時間以上、実際: ${TOTAL_HOURS}時間）"
+        return 1
+    fi
+}
+
+test_version_linking() {
+    echo "   🔍 バージョン紐づけテスト..."
+    ISSUES_RESPONSE=$(docker exec redmine curl -s -H "X-Redmine-API-Key: $API_KEY" "$BASE_URL/projects/test-project/issues.json?include=fixed_version" 2>/dev/null)
+    LINKED_COUNT=$(echo "$ISSUES_RESPONSE" | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    linked = sum(1 for issue in data.get('issues', []) if issue.get('fixed_version'))
+    print(linked)
+except:
+    print(0)
+" 2>/dev/null || echo "0")
+
+    if [ "$LINKED_COUNT" -ge 8 ]; then
+        echo "   ✅ バージョン紐づけOK（$LINKED_COUNT件）"
+        return 0
+    else
+        echo "   ❌ バージョン紐づけNG（期待値: 8件以上、実際: $LINKED_COUNT件）"
+        return 1
+    fi
+}
+
+# 全テストの実行
+FAILED_TESTS=0
+
+test_redmine_connection || FAILED_TESTS=$((FAILED_TESTS + 1))
+test_api_access || FAILED_TESTS=$((FAILED_TESTS + 1))
+test_project_creation || FAILED_TESTS=$((FAILED_TESTS + 1))
+test_versions_creation || FAILED_TESTS=$((FAILED_TESTS + 1))
+test_issues_creation || FAILED_TESTS=$((FAILED_TESTS + 1))
+test_estimated_hours || FAILED_TESTS=$((FAILED_TESTS + 1))
+test_version_linking || FAILED_TESTS=$((FAILED_TESTS + 1))
+
+echo ""
+if [ $FAILED_TESTS -eq 0 ]; then
+    echo "🎉 全テストが成功しました！Redmineテスト環境のセットアップが完了しました！"
+    SETUP_STATUS="✅ 成功"
+else
+    echo "⚠️  $FAILED_TESTS 個のテストが失敗しました。セットアップに問題がある可能性があります。"
+    SETUP_STATUS="❌ 失敗（$FAILED_TESTS 個のテスト失敗）"
+fi
+
+echo ""
+echo "📋 セットアップ結果サマリー:"
+
+# 最終結果確認
+ISSUES_RESPONSE=$(docker exec redmine curl -s -H "X-Redmine-API-Key: $API_KEY" "$BASE_URL/projects/test-project/issues.json" 2>/dev/null)
+ISSUE_COUNT=$(echo "$ISSUES_RESPONSE" | python3 -c "import sys, json; print(json.load(sys.stdin).get('total_count', 0))" 2>/dev/null || echo "0")
+TOTAL_HOURS=$(echo "$ISSUES_RESPONSE" | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    total = sum(float(issue.get('estimated_hours', 0)) for issue in data.get('issues', []) if issue.get('estimated_hours'))
+    print(f'{total:.1f}')
+except:
+    print('0.0')
+" 2>/dev/null || echo "0.0")
+
+echo "   📁 プロジェクト: テストプロジェクト (test-project)"
+echo "   🏷️  バージョン: v1.0.0, v1.1.0, v2.0.0"
+echo "   🎫 チケット数: $ISSUE_COUNT件"
+echo "   ⏱️  総予定工数: ${TOTAL_HOURS}時間"
+echo "   🧪 テスト結果: $SETUP_STATUS"
 echo ""
 echo "🔗 アクセス情報:"
 echo "   Web UI: http://localhost:3000"
 echo "   ログイン: admin / admin"
 echo "   APIキー: $API_KEY"
 echo ""
-echo "📊 バーンダウンチャート開発の準備が整いました！"
-echo "   プロジェクト: http://localhost:3000/projects/test-project"
-echo "   チケット一覧: http://localhost:3000/projects/test-project/issues"
-echo "   バージョン一覧: http://localhost:3000/projects/test-project/versions"
+if [ $FAILED_TESTS -eq 0 ]; then
+    echo "📊 バーンダウンチャート開発の準備が整いました！"
+    echo "   プロジェクト: http://localhost:3000/projects/test-project"
+    echo "   チケット一覧: http://localhost:3000/projects/test-project/issues"
+    echo "   バージョン一覧: http://localhost:3000/projects/test-project/versions"
+    exit 0
+else
+    echo "🔧 問題解決のヒント:"
+    echo "   1. コンテナの状態確認: docker ps"
+    echo "   2. Redmineログ確認: docker logs redmine"
+    echo "   3. 手動でWeb UIにアクセスして設定確認"
+    echo "   4. 環境をリセットして再実行: docker compose down -v && ./scripts/setup_complete_test_environment.sh"
+    exit 1
+fi
