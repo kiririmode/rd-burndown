@@ -216,6 +216,9 @@ config.yaml
 *.sqlite
 *.sqlite3
 
+# MCP Servers
+.serena/
+
 # Output files
 *.png
 *.html
