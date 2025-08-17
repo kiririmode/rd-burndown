@@ -58,7 +58,7 @@ repos:
         entry: uv run lizard
         language: system
         files: '\.py$'
-        args: [--CCN, '15', rd_burndown/]
+        args: [--CCN, '10', rd_burndown/]
         exclude: ^tests/
       - id: test-coverage
         name: Test coverage check (55% minimum)

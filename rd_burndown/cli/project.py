@@ -1,6 +1,9 @@
 """プロジェクト管理コマンド"""
 
+from __future__ import annotations
+
 import json
+from typing import Any
 
 import click
 from rich.console import Console
@@ -81,62 +84,74 @@ def info(ctx: click.Context, project_id: int, verbose: bool) -> None:
     console.print(f"[blue]プロジェクト {project_id} の情報を取得中...[/blue]")
 
     try:
-        # プロジェクト基本情報
+        # プロジェクト基本情報取得と表示
         project_data = redmine_client.get_project_data(project_id)
+        _display_project_basic_info(project_data)
 
-        table = Table(title=f"プロジェクト情報: {project_data.name}")
-        table.add_column("項目", style="cyan")
-        table.add_column("値", style="green")
+        # バージョン情報表示（詳細モード時）
+        if verbose and project_data.versions:
+            _display_project_versions(project_data.versions)
 
-        table.add_row("ID", str(project_data.id))
-        table.add_row("名前", project_data.name)
-        table.add_row("識別子", project_data.identifier)
-        table.add_row("説明", project_data.description or "なし")
-        table.add_row(
-            "ステータス", "アクティブ" if project_data.status == 1 else "非アクティブ"
-        )
-        table.add_row("作成日", project_data.created_on.strftime("%Y-%m-%d %H:%M:%S"))
-        table.add_row("更新日", project_data.updated_on.strftime("%Y-%m-%d %H:%M:%S"))
-
-        if project_data.start_date:
-            table.add_row("開始日", project_data.start_date.strftime("%Y-%m-%d"))
-        if project_data.end_date:
-            table.add_row("終了日", project_data.end_date.strftime("%Y-%m-%d"))
-
-        console.print(table)
-
-        # バージョン情報
-        if project_data.versions and verbose:
-            version_table = Table(title="バージョン一覧")
-            version_table.add_column("ID", style="cyan")
-            version_table.add_column("名前", style="green")
-            version_table.add_column("ステータス", style="yellow")
-
-            for version in project_data.versions:
-                version_table.add_row(
-                    str(version["id"]),
-                    version["name"],
-                    version.get("status", "unknown"),
-                )
-
-            console.print(version_table)
-
-        # キャッシュ状態
-        try:
-            cache_status = data_manager.get_cache_status(project_id)
-            if "error" not in cache_status:
-                console.print("\n[dim]キャッシュ状態:[/dim]")
-                console.print(f"  チケット数: {cache_status['tickets_count']}")
-                console.print(
-                    f"  スナップショット数: {cache_status['snapshots_count']}"
-                )
-                console.print(f"  最終更新: {cache_status['last_update'] or 'なし'}")
-        except Exception:
-            console.print("\n[dim]キャッシュ状態: 未同期[/dim]")
+        # キャッシュ状態表示
+        _display_cache_status(data_manager, project_id)
 
     except Exception as e:
         console.print(f"[red]✗ プロジェクト情報取得に失敗しました: {e}[/red]")
         raise click.ClickException(f"Project info failed: {e}") from e
+
+
+def _display_project_basic_info(project_data) -> None:
+    """プロジェクト基本情報を表示"""
+    table = Table(title=f"プロジェクト情報: {project_data.name}")
+    table.add_column("項目", style="cyan")
+    table.add_column("値", style="green")
+
+    table.add_row("ID", str(project_data.id))
+    table.add_row("名前", project_data.name)
+    table.add_row("識別子", project_data.identifier)
+    table.add_row("説明", project_data.description or "なし")
+    table.add_row(
+        "ステータス", "アクティブ" if project_data.status == 1 else "非アクティブ"
+    )
+    table.add_row("作成日", project_data.created_on.strftime("%Y-%m-%d %H:%M:%S"))
+    table.add_row("更新日", project_data.updated_on.strftime("%Y-%m-%d %H:%M:%S"))
+
+    if project_data.start_date:
+        table.add_row("開始日", project_data.start_date.strftime("%Y-%m-%d"))
+    if project_data.end_date:
+        table.add_row("終了日", project_data.end_date.strftime("%Y-%m-%d"))
+
+    console.print(table)
+
+
+def _display_project_versions(versions: list[dict[str, Any]]) -> None:
+    """プロジェクトバージョン情報を表示"""
+    version_table = Table(title="バージョン一覧")
+    version_table.add_column("ID", style="cyan")
+    version_table.add_column("名前", style="green")
+    version_table.add_column("ステータス", style="yellow")
+
+    for version in versions:
+        version_table.add_row(
+            str(version["id"]),
+            version["name"],
+            version.get("status", "unknown"),
+        )
+
+    console.print(version_table)
+
+
+def _display_cache_status(data_manager, project_id: int) -> None:
+    """キャッシュ状態を表示"""
+    try:
+        cache_status = data_manager.get_cache_status(project_id)
+        if "error" not in cache_status:
+            console.print("\n[dim]キャッシュ状態:[/dim]")
+            console.print(f"  チケット数: {cache_status['tickets_count']}")
+            console.print(f"  スナップショット数: {cache_status['snapshots_count']}")
+            console.print(f"  最終更新: {cache_status['last_update'] or 'なし'}")
+    except Exception:
+        console.print("\n[dim]キャッシュ状態: 未同期[/dim]")
 
 
 @project.command()

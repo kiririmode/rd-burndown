@@ -175,51 +175,95 @@ class BurndownCalculator:
         if not timeline.snapshots:
             return []
 
-        dynamic_line = []
+        # スコープ変更データの準備
+        scope_changes_by_date = self._prepare_scope_changes_by_date(timeline)
+
+        # 初期値設定
         current_date = timeline.start_date
         end_date = timeline.end_date or date.today()
+        current_total_hours = timeline.snapshots[0]["total_estimated_hours"]
 
-        # 日毎のスコープ変更を集計
+        # 動的理想線を日毎に計算
+        return self._calculate_daily_dynamic_ideal(
+            timeline,
+            current_date,
+            end_date,
+            current_total_hours,
+            scope_changes_by_date,
+            exclude_weekends,
+        )
+
+    def _prepare_scope_changes_by_date(self, timeline: ProjectTimeline) -> dict:
+        """日毎のスコープ変更を集計"""
         scope_changes_by_date = {}
         for change in timeline.scope_changes:
             change_date = datetime.fromisoformat(change["date"]).date()
             if change_date not in scope_changes_by_date:
                 scope_changes_by_date[change_date] = 0.0
             scope_changes_by_date[change_date] += change["hours_delta"]
+        return scope_changes_by_date
 
-        # 初期総工数
-        current_total_hours = timeline.snapshots[0]["total_estimated_hours"]
+    def _calculate_daily_dynamic_ideal(
+        self,
+        timeline: ProjectTimeline,
+        start_date: date,
+        end_date: date,
+        initial_total_hours: float,
+        scope_changes_by_date: dict,
+        exclude_weekends: bool,
+    ) -> list[tuple[date, float]]:
+        """日毎の動的理想線を計算"""
+        dynamic_line = []
+        current_date = start_date
+        current_total_hours = initial_total_hours
 
         while current_date <= end_date:
-            # その日のスコープ変更を適用
-            if current_date in scope_changes_by_date:
-                current_total_hours += scope_changes_by_date[current_date]
+            # スコープ変更を適用
+            current_total_hours += scope_changes_by_date.get(current_date, 0.0)
 
-            # その日時点での残り日数を計算
-            if exclude_weekends:
-                remaining_days = get_business_days_between(current_date, end_date)
-            else:
-                remaining_days = (end_date - current_date).days
-
-            if remaining_days <= 0:
-                remaining_hours = 0.0
-            else:
-                # その日時点での完了工数を取得
-                completed_hours = 0.0
-                for snapshot in timeline.snapshots:
-                    snapshot_date = datetime.fromisoformat(snapshot["date"]).date()
-                    if snapshot_date == current_date:
-                        completed_hours = snapshot["completed_hours"]
-                        break
-
-                # 動的理想線の計算
-                remaining_total = current_total_hours - completed_hours
-                remaining_hours = remaining_total if remaining_days > 0 else 0.0
+            # 残り工数を計算
+            remaining_hours = self._calculate_dynamic_remaining_hours(
+                timeline, current_date, end_date, current_total_hours, exclude_weekends
+            )
 
             dynamic_line.append((current_date, max(0.0, remaining_hours)))
             current_date += timedelta(days=1)
 
         return dynamic_line
+
+    def _calculate_dynamic_remaining_hours(
+        self,
+        timeline: ProjectTimeline,
+        current_date: date,
+        end_date: date,
+        current_total_hours: float,
+        exclude_weekends: bool,
+    ) -> float:
+        """指定日の動的理想残り工数を計算"""
+        # 残り日数を計算
+        if exclude_weekends:
+            remaining_days = get_business_days_between(current_date, end_date)
+        else:
+            remaining_days = (end_date - current_date).days
+
+        if remaining_days <= 0:
+            return 0.0
+
+        # 完了工数を取得
+        completed_hours = self._get_completed_hours_for_date(timeline, current_date)
+
+        # 残り工数を計算
+        return current_total_hours - completed_hours
+
+    def _get_completed_hours_for_date(
+        self, timeline: ProjectTimeline, target_date: date
+    ) -> float:
+        """指定日の完了工数を取得"""
+        for snapshot in timeline.snapshots:
+            snapshot_date = datetime.fromisoformat(snapshot["date"]).date()
+            if snapshot_date == target_date:
+                return snapshot["completed_hours"]
+        return 0.0
 
     def calculate_scope_trend_line(
         self, timeline: ProjectTimeline

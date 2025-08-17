@@ -563,5 +563,11 @@ def get_data_manager() -> DataManager:
 
     Returns:
         DataManager: データマネージャーインスタンス
+
+    Raises:
+        DataManagerError: データマネージャー作成に失敗した場合
     """
-    return DataManager()
+    try:
+        return DataManager()
+    except Exception as e:
+        raise DataManagerError(f"Failed to create data manager: {e}") from e

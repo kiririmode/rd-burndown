@@ -280,7 +280,23 @@ class ChartGenerator:
         # 図のサイズ設定
         fig, ax = plt.subplots(figsize=(width / dpi, height / dpi), dpi=dpi)
 
-        # データ準備
+        # データ準備と検証
+        chart_data = self._prepare_burndown_chart_data(timeline)
+
+        # ラインを描画
+        self._plot_ideal_line(ax, chart_data["ideal_line"])
+        self._plot_actual_line(ax, chart_data["actual_line"])
+
+        # 現在日マーカー
+        self._plot_today_marker(ax, timeline)
+
+        # スタイル設定
+        self._setup_chart_style(ax, timeline, "バーンダウンチャート")
+
+        return fig
+
+    def _prepare_burndown_chart_data(self, timeline: ProjectTimeline) -> dict:
+        """バーンダウンチャート用データを準備"""
         ideal_line = self.calculator.calculate_ideal_line(timeline)
         actual_line = self.calculator.calculate_actual_line(timeline)
 
@@ -295,60 +311,10 @@ class ChartGenerator:
                 "Check that the project has daily snapshots with progress data."
             )
 
-        # 理想線
-        ideal_dates, ideal_hours = zip(*ideal_line)
-        ideal_label = (
-            "Ideal Line"
-            if (hasattr(self, "_no_japanese_font") and self._no_japanese_font)
-            else "理想線"
-        )
-        ax.plot(
-            ideal_dates,
-            ideal_hours,
-            label=ideal_label,
-            color=self.config.chart.colors.ideal,
-            linestyle=self.config.chart.line_styles.ideal,
-            linewidth=2,
-        )
-
-        # 実際線
-        actual_dates, actual_hours = zip(*actual_line)
-        actual_label = (
-            "Actual Line"
-            if (hasattr(self, "_no_japanese_font") and self._no_japanese_font)
-            else "実際線"
-        )
-        ax.plot(
-            actual_dates,
-            actual_hours,
-            label=actual_label,
-            color=self.config.chart.colors.actual,
-            linestyle=self.config.chart.line_styles.actual,
-            linewidth=2,
-            marker="o",
-            markersize=4,
-        )
-
-        # 現在日マーカー
-        today = date.today()
-        if timeline.start_date <= today <= (timeline.end_date or today):
-            today_label = (
-                "Today"
-                if (hasattr(self, "_no_japanese_font") and self._no_japanese_font)
-                else "現在日"
-            )
-            ax.axvline(
-                date2num(today),
-                color="gray",
-                linestyle="--",
-                alpha=0.7,
-                label=today_label,
-            )
-
-        # スタイル設定
-        self._setup_chart_style(ax, timeline, "バーンダウンチャート")
-
-        return fig
+        return {
+            "ideal_line": ideal_line,
+            "actual_line": actual_line,
+        }
 
     def _create_scope_chart(
         self, timeline: ProjectTimeline, show_changes: bool, width: int, height: int
@@ -357,7 +323,23 @@ class ChartGenerator:
         # 図のサイズ設定
         fig, ax = plt.subplots(figsize=(width / 100, height / 100))
 
-        # データ準備
+        # データ準備と検証
+        scope_trend = self._prepare_scope_chart_data(timeline)
+
+        # 総工数推移線を描画
+        self._plot_scope_trend_line(ax, scope_trend)
+
+        # スコープ変更マーカーを描画
+        if show_changes:
+            self._plot_scope_change_markers(ax, timeline)
+
+        # スタイル設定
+        self._setup_scope_chart_style(ax, timeline)
+
+        return fig
+
+    def _prepare_scope_chart_data(self, timeline: ProjectTimeline) -> list:
+        """スコープチャート用データを準備"""
         scope_trend = self.calculator.calculate_scope_trend_line(timeline)
 
         if not scope_trend:
@@ -366,7 +348,10 @@ class ChartGenerator:
                 "Check that the project has daily snapshots with total hours data."
             )
 
-        # 総工数推移線
+        return scope_trend
+
+    def _plot_scope_trend_line(self, ax, scope_trend: list) -> None:
+        """総工数推移線を描画"""
         scope_dates, scope_hours = zip(*scope_trend)
         scope_label = (
             "Total Hours Trend"
@@ -384,50 +369,57 @@ class ChartGenerator:
             markersize=5,
         )
 
-        # スコープ変更マーカー
-        if show_changes and timeline.scope_changes:
-            for change in timeline.scope_changes:
-                change_date = change["date"]
-                hours_delta = change["hours_delta"]
+    def _plot_scope_change_markers(self, ax, timeline: ProjectTimeline) -> None:
+        """スコープ変更マーカーを描画"""
+        if not timeline.scope_changes:
+            return
 
-                # 変更日の総工数取得
-                snapshot = timeline.get_snapshot_by_date(
-                    change_date
-                    if isinstance(change_date, date)
-                    else date.fromisoformat(change_date)
+        increase_label_added = False
+        decrease_label_added = False
+
+        for change in timeline.scope_changes:
+            change_date = change["date"]
+            hours_delta = change["hours_delta"]
+
+            # 変更日の総工数取得
+            snapshot = timeline.get_snapshot_by_date(
+                change_date
+                if isinstance(change_date, date)
+                else date.fromisoformat(change_date)
+            )
+            if not snapshot:
+                continue
+
+            total_hours = snapshot["total_estimated_hours"]
+
+            # 増加・減少でマーカーを分ける
+            if hours_delta > 0:
+                label = "スコープ増加" if not increase_label_added else ""
+                ax.scatter(
+                    change_date,
+                    total_hours,
+                    color="red",
+                    marker="^",
+                    s=100,
+                    label=label,
+                    zorder=5,
                 )
-                if snapshot:
-                    total_hours = snapshot["total_estimated_hours"]
+                increase_label_added = True
+            else:
+                label = "スコープ減少" if not decrease_label_added else ""
+                ax.scatter(
+                    change_date,
+                    total_hours,
+                    color="green",
+                    marker="v",
+                    s=100,
+                    label=label,
+                    zorder=5,
+                )
+                decrease_label_added = True
 
-                    # 増加・減少でマーカーを分ける
-                    if hours_delta > 0:
-                        ax.scatter(
-                            change_date,
-                            total_hours,
-                            color="red",
-                            marker="^",
-                            s=100,
-                            label="スコープ増加"
-                            if "スコープ増加"
-                            not in [line.get_label() for line in ax.lines]
-                            else "",
-                            zorder=5,
-                        )
-                    else:
-                        ax.scatter(
-                            change_date,
-                            total_hours,
-                            color="green",
-                            marker="v",
-                            s=100,
-                            label="スコープ減少"
-                            if "スコープ減少"
-                            not in [line.get_label() for line in ax.lines]
-                            else "",
-                            zorder=5,
-                        )
-
-        # スタイル設定
+    def _setup_scope_chart_style(self, ax, timeline: ProjectTimeline) -> None:
+        """スコープチャート固有のスタイル設定"""
         self._setup_chart_style(ax, timeline, "スコープ変更チャート")
         y_label = (
             "Total Hours"
@@ -436,8 +428,6 @@ class ChartGenerator:
         )
         ax.set_ylabel(y_label)
 
-        return fig
-
     def _create_combined_chart(
         self, timeline: ProjectTimeline, width: int, height: int
     ) -> Figure:
@@ -445,7 +435,28 @@ class ChartGenerator:
         # 図のサイズ設定
         fig, ax = plt.subplots(figsize=(width / 100, height / 100))
 
-        # データ準備
+        # データ準備と検証
+        chart_data = self._prepare_combined_chart_data(timeline)
+
+        # 各ラインを描画
+        self._plot_ideal_line(ax, chart_data["ideal_line"])
+        self._plot_actual_line(ax, chart_data["actual_line"])
+        if chart_data["dynamic_ideal_line"]:
+            self._plot_dynamic_ideal_line(ax, chart_data["dynamic_ideal_line"])
+
+        # 現在日マーカー
+        self._plot_today_marker(ax, timeline)
+
+        # スコープ変更エリア
+        self._plot_scope_change_areas(ax, timeline)
+
+        # スタイル設定
+        self._setup_chart_style(ax, timeline, "統合バーンダウンチャート")
+
+        return fig
+
+    def _prepare_combined_chart_data(self, timeline: ProjectTimeline) -> dict:
+        """統合チャート用データを準備"""
         ideal_line = self.calculator.calculate_ideal_line(timeline)
         actual_line = self.calculator.calculate_actual_line(timeline)
         dynamic_ideal_line = self.calculator.calculate_dynamic_ideal_line(timeline)
@@ -461,7 +472,14 @@ class ChartGenerator:
                 "Check that the project has daily snapshots with progress data."
             )
 
-        # 理想線
+        return {
+            "ideal_line": ideal_line,
+            "actual_line": actual_line,
+            "dynamic_ideal_line": dynamic_ideal_line,
+        }
+
+    def _plot_ideal_line(self, ax, ideal_line: list) -> None:
+        """理想線を描画"""
         ideal_dates, ideal_hours = zip(*ideal_line)
         ideal_label = (
             "Ideal Line"
@@ -477,7 +495,8 @@ class ChartGenerator:
             linewidth=2,
         )
 
-        # 実際線
+    def _plot_actual_line(self, ax, actual_line: list) -> None:
+        """実際線を描画"""
         actual_dates, actual_hours = zip(*actual_line)
         actual_label = (
             "Actual Line"
@@ -495,25 +514,26 @@ class ChartGenerator:
             markersize=4,
         )
 
-        # 動的理想線
-        if dynamic_ideal_line:
-            dynamic_dates, dynamic_hours = zip(*dynamic_ideal_line)
-            dynamic_label = (
-                "Dynamic Ideal Line"
-                if (hasattr(self, "_no_japanese_font") and self._no_japanese_font)
-                else "動的理想線"
-            )
-            ax.plot(
-                dynamic_dates,
-                dynamic_hours,
-                label=dynamic_label,
-                color=self.config.chart.colors.dynamic_ideal,
-                linestyle=self.config.chart.line_styles.dynamic_ideal,
-                linewidth=2,
-                alpha=0.8,
-            )
+    def _plot_dynamic_ideal_line(self, ax, dynamic_ideal_line: list) -> None:
+        """動的理想線を描画"""
+        dynamic_dates, dynamic_hours = zip(*dynamic_ideal_line)
+        dynamic_label = (
+            "Dynamic Ideal Line"
+            if (hasattr(self, "_no_japanese_font") and self._no_japanese_font)
+            else "動的理想線"
+        )
+        ax.plot(
+            dynamic_dates,
+            dynamic_hours,
+            label=dynamic_label,
+            color=self.config.chart.colors.dynamic_ideal,
+            linestyle=self.config.chart.line_styles.dynamic_ideal,
+            linewidth=2,
+            alpha=0.8,
+        )
 
-        # 現在日マーカー
+    def _plot_today_marker(self, ax, timeline: ProjectTimeline) -> None:
+        """現在日マーカーを描画"""
         today = date.today()
         if timeline.start_date <= today <= (timeline.end_date or today):
             today_label = (
@@ -529,29 +549,28 @@ class ChartGenerator:
                 label=today_label,
             )
 
-        # スコープ変更影響エリア
-        if timeline.scope_changes:
-            for change in timeline.scope_changes:
-                if abs(change["hours_delta"]) >= 8.0:  # 中程度以上の変更のみ表示
-                    change_date = change["date"]
-                    if isinstance(change_date, str):
-                        change_date = date.fromisoformat(change_date)
+    def _plot_scope_change_areas(self, ax, timeline: ProjectTimeline) -> None:
+        """スコープ変更影響エリアを描画"""
+        if not timeline.scope_changes:
+            return
 
-                    change_date_num = date2num(change_date)
-                    ax.axvspan(
-                        change_date_num,
-                        change_date_num,
-                        alpha=0.2,
-                        color="yellow",
-                        label="スコープ変更"
-                        if "スコープ変更" not in [line.get_label() for line in ax.lines]
-                        else "",
-                    )
+        scope_label_added = False
+        for change in timeline.scope_changes:
+            if abs(change["hours_delta"]) >= 8.0:  # 中程度以上の変更のみ表示
+                change_date = change["date"]
+                if isinstance(change_date, str):
+                    change_date = date.fromisoformat(change_date)
 
-        # スタイル設定
-        self._setup_chart_style(ax, timeline, "統合バーンダウンチャート")
-
-        return fig
+                change_date_num = date2num(change_date)
+                label = "スコープ変更" if not scope_label_added else ""
+                ax.axvspan(
+                    change_date_num,
+                    change_date_num,
+                    alpha=0.2,
+                    color="yellow",
+                    label=label,
+                )
+                scope_label_added = True
 
     def _setup_chart_style(
         self, ax: Axes, timeline: ProjectTimeline, title: str
@@ -622,5 +641,11 @@ def get_chart_generator() -> ChartGenerator:
 
     Returns:
         ChartGenerator: チャート生成器インスタンス
+
+    Raises:
+        ChartGeneratorError: チャート生成器作成に失敗した場合
     """
-    return ChartGenerator()
+    try:
+        return ChartGenerator()
+    except Exception as e:
+        raise ChartGeneratorError(f"Failed to create chart generator: {e}") from e

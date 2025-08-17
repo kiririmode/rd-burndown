@@ -195,3 +195,41 @@ class TestErrorHandling:
                 main()
 
             assert exc_info.value.code == 1
+
+    def test_general_exception(self):
+        """一般的な例外のテスト"""
+        with patch("rd_burndown.cli.main.cli") as mock_cli:
+            mock_cli.side_effect = Exception("Test error")
+
+            from rd_burndown.cli.main import main
+
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
+            assert exc_info.value.code == 1
+
+    def test_system_exit(self):
+        """SystemExit のテスト"""
+        with patch("rd_burndown.cli.main.cli") as mock_cli:
+            mock_cli.side_effect = SystemExit(42)
+
+            from rd_burndown.cli.main import main
+
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
+            assert exc_info.value.code == 42
+
+    def test_main_function_normal_execution(self):
+        """main関数の正常実行テスト"""
+        import sys
+        from unittest.mock import patch
+
+        from rd_burndown.cli.main import main
+
+        # 正常終了のテスト
+        with patch.object(sys, "argv", ["rd-burndown", "--version"]):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+            # --version は exit code 0 で終了
+            assert exc_info.value.code == 0

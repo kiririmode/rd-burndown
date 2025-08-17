@@ -1,6 +1,7 @@
 """日付処理ユーティリティのテスト"""
 
 from datetime import date, datetime
+from unittest.mock import patch
 
 from rd_burndown.utils.date_utils import (
     add_business_days,
@@ -9,6 +10,7 @@ from rd_burndown.utils.date_utils import (
     format_datetime,
     get_all_days,
     get_business_days,
+    get_business_days_between,
     get_project_duration,
     is_business_day,
     parse_date_string,
@@ -63,13 +65,21 @@ class TestDateUtils:
         """日時文字列パースのテスト"""
         # 有効な日時文字列
         parsed = parse_datetime_string("2024-01-15T10:30:00")
-        if parsed is not None:  # Pendulumが利用可能な場合
+        if parsed is not None:  # Pendulumの実装により結果が異なる可能性
             assert isinstance(parsed, datetime)
             assert parsed.date() == date(2024, 1, 15)
+            assert parsed.hour == 10
+            assert parsed.minute == 30
 
         # 無効な文字列
         assert parse_datetime_string("invalid-datetime") is None
         assert parse_datetime_string("") is None
+
+        # 実際に動作する形式でテスト
+        parsed2 = parse_datetime_string("2024-01-15 10:30:00")
+        if parsed2 is not None:
+            assert isinstance(parsed2, datetime)
+            assert parsed2.date() == date(2024, 1, 15)
 
     def test_format_date(self):
         """日付フォーマットのテスト"""
@@ -152,6 +162,15 @@ class TestDateUtils:
         )
         assert duration_business == 4  # 元日は祝日、土日除外
 
+    def test_get_business_days_between(self):
+        """営業日数計算のテスト"""
+        start_date = date(2024, 1, 1)
+        end_date = date(2024, 1, 7)
+
+        # 営業日数を取得
+        business_days_count = get_business_days_between(start_date, end_date)
+        assert business_days_count == 4  # 元日は祝日、土日除外
+
     def test_edge_cases(self):
         """エッジケースのテスト"""
         # 同じ日付
@@ -164,3 +183,24 @@ class TestDateUtils:
         sunday = date(2024, 1, 7)
         weekend_business_days = get_business_days(saturday, sunday)
         assert len(weekend_business_days) == 0
+
+    def test_parse_datetime_string_with_to_datetime_method(self):
+        """Test parse_datetime_string with object having to_datetime method."""
+        from datetime import datetime
+
+        from rd_burndown.utils.date_utils import parse_datetime_string
+
+        # Create a mock object with to_datetime method
+        class MockParsedObject:
+            def to_datetime(self):
+                return datetime(2024, 1, 1, 12, 0, 0)
+
+        # Mock pendulum.parse to return our mock object
+        with patch("pendulum.parse") as mock_pendulum_parse:
+            mock_obj = MockParsedObject()
+            mock_pendulum_parse.return_value = mock_obj
+
+            result = parse_datetime_string("2024-01-01")
+
+            assert result == datetime(2024, 1, 1, 12, 0, 0)
+            mock_pendulum_parse.assert_called_once_with("2024-01-01", tz="Asia/Tokyo")

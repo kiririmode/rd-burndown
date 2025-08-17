@@ -6,6 +6,7 @@ from typing import Optional
 
 import click
 from rich.console import Console
+from rich.table import Table
 from rich.traceback import install
 
 from .. import __version__
@@ -131,50 +132,73 @@ def show(ctx: click.Context, output_format: str, section: Optional[str]) -> None
     config = config_manager.get_config()
 
     if output_format == "json":
-        import json
-
-        if section:
-            section_data = getattr(config, section, None)
-            if section_data:
-                console.print(
-                    json.dumps(section_data.model_dump(), indent=2, ensure_ascii=False)
-                )
-            else:
-                console.print(f"[red]セクション '{section}' が見つかりません[/red]")
-        else:
-            console.print(json.dumps(config.model_dump(), indent=2, ensure_ascii=False))
+        _show_config_as_json(config, section)
     else:
-        from rich.table import Table
+        _show_config_as_table(config, section)
 
-        table = Table(title="現在の設定")
-        table.add_column("セクション", style="cyan")
-        table.add_column("項目", style="magenta")
-        table.add_column("値", style="green")
 
-        config_dict = config.model_dump()
+def _show_config_as_json(config, section: Optional[str]) -> None:
+    """JSON形式で設定を表示"""
+    import json
 
-        for section_name, section_values in config_dict.items():
-            if section and section_name != section:
-                continue
+    if section:
+        section_data = getattr(config, section, None)
+        if section_data:
+            console.print(
+                json.dumps(section_data.model_dump(), indent=2, ensure_ascii=False)
+            )
+        else:
+            console.print(f"[red]セクション '{section}' が見つかりません[/red]")
+    else:
+        console.print(json.dumps(config.model_dump(), indent=2, ensure_ascii=False))
 
-            if isinstance(section_values, dict):
-                for key, value in section_values.items():
-                    if isinstance(value, dict):
-                        for sub_key, sub_value in value.items():
-                            table.add_row(
-                                section_name, f"{key}.{sub_key}", str(sub_value)
-                            )
-                    else:
-                        # API キーは隠す
-                        if key == "api_key" and value:
-                            display_value = "*" * 8 + str(value)[-4:]
-                        else:
-                            display_value = str(value)
-                        table.add_row(section_name, str(key), display_value)
+
+def _show_config_as_table(config, section: Optional[str]) -> None:
+    """テーブル形式で設定を表示"""
+    from rich.table import Table
+
+    table = Table(title="現在の設定")
+    table.add_column("セクション", style="cyan")
+    table.add_column("項目", style="magenta")
+    table.add_column("値", style="green")
+
+    config_dict = config.model_dump()
+
+    for section_name, section_values in config_dict.items():
+        if section and section_name != section:
+            continue
+
+        _add_section_to_table(table, section_name, section_values)
+
+    console.print(table)
+
+
+def _add_section_to_table(table: Table, section_name: str, section_values) -> None:
+    """セクションの内容をテーブルに追加"""
+    if isinstance(section_values, dict):
+        for key, value in section_values.items():
+            if isinstance(value, dict):
+                _add_nested_dict_to_table(table, section_name, key, value)
             else:
-                table.add_row(section_name, "", str(section_values))
+                display_value = _format_config_value(key, value)
+                table.add_row(section_name, str(key), display_value)
+    else:
+        table.add_row(section_name, "", str(section_values))
 
-        console.print(table)
+
+def _add_nested_dict_to_table(
+    table: Table, section_name: str, key: str, value: dict
+) -> None:
+    """ネストした辞書をテーブルに追加"""
+    for sub_key, sub_value in value.items():
+        table.add_row(section_name, f"{key}.{sub_key}", str(sub_value))
+
+
+def _format_config_value(key: str, value) -> str:
+    """設定値の表示形式を調整（APIキーなどを隠す）"""
+    if key == "api_key" and value:
+        return "*" * 8 + str(value)[-4:]
+    return str(value)
 
 
 # サブコマンドを追加（モジュールレベルで実行）

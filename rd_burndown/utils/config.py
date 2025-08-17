@@ -168,70 +168,87 @@ class ConfigManager:
 
     def _validate_config_dict(self, config_dict: dict[str, Any]) -> None:
         """設定値のバリデーション"""
-        # Redmine設定の検証
-        if "redmine" in config_dict:
-            redmine_config = config_dict["redmine"]
+        self._validate_redmine_config(config_dict.get("redmine", {}))
+        self._validate_data_config(config_dict.get("data", {}))
+        self._validate_output_config(config_dict.get("output", {}))
 
-            # URL検証
-            if "url" in redmine_config:
-                url = redmine_config["url"]
-                if not isinstance(url, str) or not url.strip():
-                    raise ValueError("Redmine URL must be a non-empty string")
-                if not url.startswith(("http://", "https://")):
-                    raise ValueError("Redmine URL must start with http:// or https://")
+    def _validate_redmine_config(self, redmine_config: dict[str, Any]) -> None:
+        """Redmine設定の検証"""
+        if not redmine_config:
+            return
 
-            # API キー検証
-            if "api_key" in redmine_config:
-                api_key = redmine_config["api_key"]
-                if not isinstance(api_key, str) or not api_key.strip():
-                    raise ValueError("Redmine API key must be a non-empty string")
-                if len(api_key.strip()) < 10:
-                    raise ValueError("Redmine API key appears to be too short")
+        self._validate_redmine_url(redmine_config.get("url"))
+        self._validate_redmine_api_key(redmine_config.get("api_key"))
+        self._validate_redmine_timeout(redmine_config.get("timeout"))
 
-            # タイムアウト検証
-            if "timeout" in redmine_config:
-                timeout = redmine_config["timeout"]
-                if not isinstance(timeout, (int, float)) or timeout <= 0:
-                    raise ValueError("Redmine timeout must be a positive number")
+    def _validate_redmine_url(self, url: Any) -> None:
+        """RedmineのURL検証"""
+        if url is None:
+            return
 
-        # データ設定の検証
-        if "data" in config_dict:
-            data_config = config_dict["data"]
+        if not isinstance(url, str) or not url.strip():
+            raise ValueError("Redmine URL must be a non-empty string")
+        if not url.startswith(("http://", "https://")):
+            raise ValueError("Redmine URL must start with http:// or https://")
 
-            # キャッシュTTL検証
-            if "cache_ttl_hours" in data_config:
-                ttl = data_config["cache_ttl_hours"]
-                if not isinstance(ttl, int) or ttl < 0:
-                    raise ValueError("Cache TTL must be a non-negative integer")
+    def _validate_redmine_api_key(self, api_key: Any) -> None:
+        """RedmineのAPIキー検証"""
+        if api_key is None:
+            return
 
-            # バッチサイズ検証
-            if "max_batch_size" in data_config:
-                batch_size = data_config["max_batch_size"]
-                if (
-                    not isinstance(batch_size, int)
-                    or batch_size <= 0
-                    or batch_size > 1000
-                ):
-                    raise ValueError("Max batch size must be between 1 and 1000")
+        if not isinstance(api_key, str) or not api_key.strip():
+            raise ValueError("Redmine API key must be a non-empty string")
+        if len(api_key.strip()) < 10:
+            raise ValueError("Redmine API key appears to be too short")
 
-        # 出力設定の検証
-        if "output" in config_dict:
-            output_config = config_dict["output"]
+    def _validate_redmine_timeout(self, timeout: Any) -> None:
+        """Redmineのタイムアウト検証"""
+        if timeout is None:
+            return
 
-            # DPI検証
-            if "default_dpi" in output_config:
-                dpi = output_config["default_dpi"]
-                if not isinstance(dpi, int) or dpi < 72 or dpi > 600:
-                    raise ValueError("DPI must be between 72 and 600")
+        if not isinstance(timeout, (int, float)) or timeout <= 0:
+            raise ValueError("Redmine timeout must be a positive number")
 
-            # 画像サイズ検証
-            for dimension in ["default_width", "default_height"]:
-                if dimension in output_config:
-                    size = output_config[dimension]
-                    if not isinstance(size, int) or size < 100 or size > 5000:
-                        raise ValueError(
-                            f"{dimension} must be between 100 and 5000 pixels"
-                        )
+    def _validate_data_config(self, data_config: dict[str, Any]) -> None:
+        """データ設定の検証"""
+        if not data_config:
+            return
+
+        # キャッシュTTL検証
+        if "cache_ttl_hours" in data_config:
+            ttl = data_config["cache_ttl_hours"]
+            if not isinstance(ttl, int) or ttl < 0:
+                raise ValueError("Cache TTL must be a non-negative integer")
+
+        # バッチサイズ検証
+        if "max_batch_size" in data_config:
+            batch_size = data_config["max_batch_size"]
+            if not isinstance(batch_size, int) or batch_size <= 0 or batch_size > 1000:
+                raise ValueError("Max batch size must be between 1 and 1000")
+
+    def _validate_output_config(self, output_config: dict[str, Any]) -> None:
+        """出力設定の検証"""
+        if not output_config:
+            return
+
+        self._validate_dpi(output_config.get("default_dpi"))
+        self._validate_image_dimensions(output_config)
+
+    def _validate_dpi(self, dpi: Any) -> None:
+        """DPI値の検証"""
+        if dpi is None:
+            return
+
+        if not isinstance(dpi, int) or dpi < 72 or dpi > 600:
+            raise ValueError("DPI must be between 72 and 600")
+
+    def _validate_image_dimensions(self, output_config: dict[str, Any]) -> None:
+        """画像サイズの検証"""
+        for dimension in ["default_width", "default_height"]:
+            if dimension in output_config:
+                size = output_config[dimension]
+                if not isinstance(size, int) or size < 100 or size > 5000:
+                    raise ValueError(f"{dimension} must be between 100 and 5000 pixels")
 
     def save_config(self, config: Config) -> None:
         """設定を保存"""

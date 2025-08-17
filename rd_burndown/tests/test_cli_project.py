@@ -3,7 +3,6 @@
 from datetime import datetime
 from unittest.mock import Mock, patch
 
-import pytest
 from click.testing import CliRunner
 
 from rd_burndown.cli.project import project
@@ -79,7 +78,7 @@ class TestProjectCommands:
         )
         mock_client.get_project_data.return_value = project_data
         mock_get_client.return_value = mock_client
-        
+
         mock_manager = Mock()
         mock_get_manager.return_value = mock_manager
 
@@ -97,7 +96,7 @@ class TestProjectCommands:
         mock_client = Mock()
         mock_client.get_project_data.side_effect = Exception("Project not found")
         mock_get_client.return_value = mock_client
-        
+
         mock_manager = Mock()
         mock_get_manager.return_value = mock_manager
 

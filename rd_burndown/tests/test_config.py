@@ -5,11 +5,13 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
 import yaml
 
 from rd_burndown.utils.config import (
     ChartColors,
     Config,
+    ConfigError,
     ConfigManager,
     OutputConfig,
     RedmineConfig,
@@ -338,3 +340,42 @@ class TestIntegration:
             assert config.redmine.api_key == "file-api-key-456"  # ファイル
             assert config.output.default_format == "svg"  # 環境変数
             assert config.output.default_width == 1200  # ファイル
+
+
+class TestConfigErrors:
+    """設定エラーのテスト"""
+
+    def test_load_config_yaml_error(self):
+        """YAML エラーのテスト"""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            config_path = Path(tmp_dir) / "invalid.yaml"
+
+            # 無効なYAMLファイルを作成
+            with open(config_path, "w", encoding="utf-8") as f:
+                f.write("invalid: yaml: content: [")
+
+            manager = ConfigManager(config_path)
+
+            with pytest.raises(ConfigError, match="Invalid YAML"):
+                manager.load_config()
+
+    def test_load_config_value_error(self):
+        """設定値エラーのテスト"""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            config_path = Path(tmp_dir) / "config.yaml"
+
+            # 無効な設定値を含むYAMLファイルを作成
+            invalid_config = {
+                "redmine": {
+                    "timeout": "not_a_number"  # 数値でない値
+                }
+            }
+
+            with open(config_path, "w", encoding="utf-8") as f:
+                yaml.dump(invalid_config, f)
+
+            manager = ConfigManager(config_path)
+
+            # バリデーションエラーが発生することを確認
+            with pytest.raises(ConfigError, match="Invalid configuration values"):
+                manager.load_config()
