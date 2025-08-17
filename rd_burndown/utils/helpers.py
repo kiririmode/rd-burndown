@@ -14,7 +14,7 @@ def ensure_directory(directory_path: Union[str, Path]) -> Path:
 
 def safe_get_nested(data: dict[str, Any], keys: list[str], default: Any = None) -> Any:
     """ネストした辞書から安全に値を取得"""
-    current = data
+    current: Any = data
     for key in keys:
         if isinstance(current, dict) and key in current:
             current = current[key]

@@ -73,7 +73,7 @@ class TestRedmineClient:
         assert client.base_url == "http://test.example.com"
 
     @patch("rd_burndown.core.redmine_client.requests.Session")
-    def test_create_session(self, mock_session_class):
+    def test_create_session(self, mock_session_class: Mock):
         """HTTPセッション作成のテスト"""
         mock_session = Mock()
         mock_session_class.return_value = mock_session
@@ -94,7 +94,7 @@ class TestRedmineClient:
 
     @patch("time.time")
     @patch("time.sleep")
-    def test_rate_limit(self, mock_sleep, mock_time):
+    def test_rate_limit(self, mock_sleep: Mock, mock_time: Mock):
         """レート制限のテスト"""
         config = self.create_test_config()
         client = RedmineClient(config)
@@ -113,7 +113,7 @@ class TestRedmineClient:
 
     @patch("time.time")
     @patch("time.sleep")
-    def test_rate_limit_no_sleep_needed(self, mock_sleep, mock_time):
+    def test_rate_limit_no_sleep_needed(self, mock_sleep: Mock, mock_time: Mock):
         """レート制限（スリープ不要）のテスト"""
         config = self.create_test_config()
         client = RedmineClient(config)
@@ -130,7 +130,7 @@ class TestRedmineClient:
         mock_sleep.assert_not_called()
 
     @patch("rd_burndown.core.redmine_client.requests.Session.request")
-    def test_make_request_success(self, mock_request):
+    def test_make_request_success(self, mock_request: Mock):
         """正常リクエストのテスト"""
         config = self.create_test_config()
         client = RedmineClient(config)
@@ -156,7 +156,7 @@ class TestRedmineClient:
         )
 
     @patch("rd_burndown.core.redmine_client.requests.Session.request")
-    def test_make_request_with_params_and_data(self, mock_request):
+    def test_make_request_with_params_and_data(self, mock_request: Mock):
         """パラメータ・データ付きリクエストのテスト"""
         config = self.create_test_config()
         client = RedmineClient(config)
@@ -180,7 +180,7 @@ class TestRedmineClient:
         )
 
     @patch("rd_burndown.core.redmine_client.requests.Session.request")
-    def test_make_request_401_error(self, mock_request):
+    def test_make_request_401_error(self, mock_request: Mock):
         """401認証エラーのテスト"""
         config = self.create_test_config()
         client = RedmineClient(config)
@@ -195,7 +195,7 @@ class TestRedmineClient:
         assert exc_info.value.status_code == 401
 
     @patch("rd_burndown.core.redmine_client.requests.Session.request")
-    def test_make_request_403_error(self, mock_request):
+    def test_make_request_403_error(self, mock_request: Mock):
         """403権限エラーのテスト"""
         config = self.create_test_config()
         client = RedmineClient(config)
@@ -210,7 +210,7 @@ class TestRedmineClient:
         assert exc_info.value.status_code == 403
 
     @patch("rd_burndown.core.redmine_client.requests.Session.request")
-    def test_make_request_404_error(self, mock_request):
+    def test_make_request_404_error(self, mock_request: Mock):
         """404リソース未検出エラーのテスト"""
         config = self.create_test_config()
         client = RedmineClient(config)
@@ -225,7 +225,7 @@ class TestRedmineClient:
         assert exc_info.value.status_code == 404
 
     @patch("rd_burndown.core.redmine_client.requests.Session.request")
-    def test_make_request_500_error(self, mock_request):
+    def test_make_request_500_error(self, mock_request: Mock):
         """500サーバーエラーのテスト"""
         config = self.create_test_config()
         client = RedmineClient(config)
@@ -240,7 +240,7 @@ class TestRedmineClient:
         assert exc_info.value.status_code == 500
 
     @patch("rd_burndown.core.redmine_client.requests.Session.request")
-    def test_make_request_connection_error(self, mock_request):
+    def test_make_request_connection_error(self, mock_request: Mock):
         """接続エラーのテスト"""
         config = self.create_test_config()
         client = RedmineClient(config)
@@ -255,7 +255,7 @@ class TestRedmineClient:
         assert "接続エラー" in str(exc_info.value)
 
     @patch("rd_burndown.core.redmine_client.requests.Session.request")
-    def test_make_request_timeout_error(self, mock_request):
+    def test_make_request_timeout_error(self, mock_request: Mock):
         """タイムアウトエラーのテスト"""
         config = self.create_test_config()
         client = RedmineClient(config)
@@ -268,7 +268,7 @@ class TestRedmineClient:
         assert "タイムアウトエラー" in str(exc_info.value)
 
     @patch("rd_burndown.core.redmine_client.requests.Session.request")
-    def test_make_request_json_decode_error(self, mock_request):
+    def test_make_request_json_decode_error(self, mock_request: Mock):
         """JSON解析エラーのテスト"""
         config = self.create_test_config()
         client = RedmineClient(config)
@@ -285,7 +285,7 @@ class TestRedmineClient:
         assert "JSON パースエラー" in str(exc_info.value)
 
     @patch.object(RedmineClient, "_make_request")
-    def test_get_projects(self, mock_make_request):
+    def test_get_projects(self, mock_make_request: Mock):
         """プロジェクト一覧取得のテスト"""
         config = self.create_test_config()
         client = RedmineClient(config)
@@ -310,7 +310,7 @@ class TestRedmineClient:
         )
 
     @patch.object(RedmineClient, "_make_request")
-    def test_get_projects_include_closed(self, mock_make_request):
+    def test_get_projects_include_closed(self, mock_make_request: Mock):
         """プロジェクト一覧取得（クローズ含む）のテスト"""
         config = self.create_test_config()
         client = RedmineClient(config)
@@ -324,7 +324,7 @@ class TestRedmineClient:
         assert "status" not in call_args[1]["params"]
 
     @patch.object(RedmineClient, "_make_request")
-    def test_get_project(self, mock_make_request):
+    def test_get_project(self, mock_make_request: Mock):
         """プロジェクト詳細取得のテスト"""
         config = self.create_test_config()
         client = RedmineClient(config)
@@ -344,7 +344,7 @@ class TestRedmineClient:
         )
 
     @patch.object(RedmineClient, "_make_request")
-    def test_get_issues(self, mock_make_request):
+    def test_get_issues(self, mock_make_request: Mock):
         """チケット一覧取得のテスト"""
         config = self.create_test_config()
         client = RedmineClient(config)
@@ -370,7 +370,7 @@ class TestRedmineClient:
         )
 
     @patch.object(RedmineClient, "_make_request")
-    def test_get_issues_with_updated_since(self, mock_make_request):
+    def test_get_issues_with_updated_since(self, mock_make_request: Mock):
         """更新日指定チケット一覧取得のテスト"""
         config = self.create_test_config()
         client = RedmineClient(config)
@@ -385,7 +385,7 @@ class TestRedmineClient:
         assert params["updated_on"] == ">=2024-01-15T12:00:00Z"
 
     @patch.object(RedmineClient, "_make_request")
-    def test_get_issues_exclude_closed(self, mock_make_request):
+    def test_get_issues_exclude_closed(self, mock_make_request: Mock):
         """チケット一覧取得（クローズ除外）のテスト"""
         config = self.create_test_config()
         client = RedmineClient(config)
@@ -399,7 +399,7 @@ class TestRedmineClient:
         assert params["status_id"] == "open"
 
     @patch.object(RedmineClient, "get_issues")
-    def test_get_all_project_issues(self, mock_get_issues):
+    def test_get_all_project_issues(self, mock_get_issues: Mock):
         """プロジェクト全チケット取得のテスト"""
         config = self.create_test_config()
         client = RedmineClient(config)
@@ -427,7 +427,7 @@ class TestRedmineClient:
         assert result[2]["id"] == 3
 
     @patch.object(RedmineClient, "_make_request")
-    def test_get_issue(self, mock_make_request):
+    def test_get_issue(self, mock_make_request: Mock):
         """チケット詳細取得のテスト"""
         config = self.create_test_config()
         client = RedmineClient(config)
@@ -445,7 +445,7 @@ class TestRedmineClient:
         )
 
     @patch.object(RedmineClient, "_make_request")
-    def test_test_connection_success(self, mock_make_request):
+    def test_test_connection_success(self, mock_make_request: Mock):
         """接続テスト（成功）のテスト"""
         config = self.create_test_config()
         client = RedmineClient(config)
@@ -458,7 +458,7 @@ class TestRedmineClient:
         mock_make_request.assert_called_once_with("GET", "/users/current.json")
 
     @patch.object(RedmineClient, "_make_request")
-    def test_test_connection_failure(self, mock_make_request):
+    def test_test_connection_failure(self, mock_make_request: Mock):
         """接続テスト（失敗）のテスト"""
         config = self.create_test_config()
         client = RedmineClient(config)
@@ -470,7 +470,7 @@ class TestRedmineClient:
         assert result is False
 
     @patch.object(RedmineClient, "_make_request")
-    def test_get_current_user(self, mock_make_request):
+    def test_get_current_user(self, mock_make_request: Mock):
         """現在ユーザー取得のテスト"""
         config = self.create_test_config()
         client = RedmineClient(config)
@@ -484,7 +484,7 @@ class TestRedmineClient:
         mock_make_request.assert_called_once_with("GET", "/users/current.json")
 
     @patch.object(RedmineClient, "_make_request")
-    def test_get_issue_statuses(self, mock_make_request):
+    def test_get_issue_statuses(self, mock_make_request: Mock):
         """チケットステータス一覧取得のテスト"""
         config = self.create_test_config()
         client = RedmineClient(config)
@@ -501,7 +501,7 @@ class TestRedmineClient:
         mock_make_request.assert_called_once_with("GET", "/issue_statuses.json")
 
     @patch.object(RedmineClient, "_make_request")
-    def test_get_trackers(self, mock_make_request):
+    def test_get_trackers(self, mock_make_request: Mock):
         """トラッカー一覧取得のテスト"""
         config = self.create_test_config()
         client = RedmineClient(config)
@@ -518,7 +518,7 @@ class TestRedmineClient:
         mock_make_request.assert_called_once_with("GET", "/trackers.json")
 
     @patch.object(RedmineClient, "_make_request")
-    def test_get_users_all(self, mock_make_request):
+    def test_get_users_all(self, mock_make_request: Mock):
         """ユーザー一覧取得（全体）のテスト"""
         config = self.create_test_config()
         client = RedmineClient(config)
@@ -534,7 +534,7 @@ class TestRedmineClient:
         )
 
     @patch.object(RedmineClient, "_make_request")
-    def test_get_users_project_members(self, mock_make_request):
+    def test_get_users_project_members(self, mock_make_request: Mock):
         """ユーザー一覧取得（プロジェクトメンバー）のテスト"""
         config = self.create_test_config()
         client = RedmineClient(config)
@@ -556,7 +556,7 @@ class TestRedmineClient:
         )
 
     @patch.object(RedmineClient, "_make_request")
-    def test_get_versions(self, mock_make_request):
+    def test_get_versions(self, mock_make_request: Mock):
         """バージョン一覧取得のテスト"""
         config = self.create_test_config()
         client = RedmineClient(config)
@@ -577,7 +577,7 @@ class TestIntegration:
     """統合テスト"""
 
     @patch("rd_burndown.core.redmine_client.requests.Session")
-    def test_client_initialization_and_configuration(self, mock_session_class):
+    def test_client_initialization_and_configuration(self, mock_session_class: Mock):
         """クライアント初期化と設定の統合テスト"""
         mock_session = Mock()
         mock_session_class.return_value = mock_session
@@ -605,7 +605,7 @@ class TestIntegration:
         )
 
     @patch.object(RedmineClient, "_make_request")
-    def test_full_api_workflow(self, mock_make_request):
+    def test_full_api_workflow(self, mock_make_request: Mock):
         """完全なAPIワークフローのテスト"""
         config = Config()
         client = RedmineClient(config)

@@ -10,7 +10,7 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
-from rd_burndown.core.data_manager import get_data_manager
+from rd_burndown.core.data_manager import DataManager, get_data_manager
 
 console = Console()
 
@@ -113,7 +113,7 @@ def cache(ctx: click.Context, action: str, project_id: Optional[int]) -> None:
         raise click.ClickException(f"Cache operation failed: {e}") from e
 
 
-def _handle_cache_clear(data_manager, project_id: Optional[int]) -> None:
+def _handle_cache_clear(data_manager: DataManager, project_id: Optional[int]) -> None:
     """キャッシュクリア処理"""
     if project_id:
         console.print(
@@ -130,7 +130,7 @@ def _handle_cache_clear(data_manager, project_id: Optional[int]) -> None:
 
 
 def _handle_cache_status(
-    data_manager, project_id: Optional[int], verbose: bool
+    data_manager: DataManager, project_id: Optional[int], verbose: bool
 ) -> None:
     """キャッシュ状態表示処理"""
     status = data_manager.get_cache_status(project_id)
@@ -141,7 +141,7 @@ def _handle_cache_status(
         _display_global_cache_status(status, verbose)
 
 
-def _display_project_cache_status(status: dict, project_id: int) -> None:
+def _display_project_cache_status(status: dict[str, Any], project_id: int) -> None:
     """特定プロジェクトのキャッシュ状態を表示"""
     if "error" in status:
         console.print(f"[red]{status['error']}[/red]")
@@ -164,7 +164,7 @@ def _display_project_cache_status(status: dict, project_id: int) -> None:
     console.print(table)
 
 
-def _display_global_cache_status(status: dict, verbose: bool) -> None:
+def _display_global_cache_status(status: dict[str, Any], verbose: bool) -> None:
     """全体のキャッシュ状態を表示"""
     db_info = status["database_info"]
     table = Table(title="キャッシュ全体状態")
@@ -188,7 +188,7 @@ def _display_global_cache_status(status: dict, verbose: bool) -> None:
     console.print(table)
 
 
-def _handle_cache_size(data_manager, project_id: Optional[int]) -> None:
+def _handle_cache_size(data_manager: DataManager, project_id: Optional[int]) -> None:
     """キャッシュサイズ表示処理"""
     status = data_manager.get_cache_status(project_id)
 
@@ -268,8 +268,8 @@ def export(
 
 
 def _filter_timeline_by_date(
-    timeline_data: dict, start_date: Optional[date], end_date: Optional[date]
-) -> dict:
+    timeline_data: dict[str, Any], start_date: Optional[date], end_date: Optional[date]
+) -> dict[str, Any]:
     """日付範囲でタイムラインデータをフィルタリング"""
     if not start_date and not end_date:
         return timeline_data
@@ -314,12 +314,12 @@ def _is_date_in_range(
 
 
 def _prepare_export_data(
-    filtered_data: dict,
+    filtered_data: dict[str, Any],
     project_id: int,
     output_format: str,
     start_date: Optional[date],
     end_date: Optional[date],
-) -> dict:
+) -> dict[str, Any]:
     """エクスポート用データ構造を準備"""
     return {
         "project": filtered_data["project"],
@@ -335,7 +335,9 @@ def _prepare_export_data(
     }
 
 
-def _write_export_file(export_data: dict, output: Path, output_format: str) -> None:
+def _write_export_file(
+    export_data: dict[str, Any], output: Path, output_format: str
+) -> None:
     """エクスポートファイルを書き込み"""
     if output_format == "json":
         _write_json_file(export_data, output)
@@ -343,13 +345,13 @@ def _write_export_file(export_data: dict, output: Path, output_format: str) -> N
         _write_csv_file(export_data, output)
 
 
-def _write_json_file(export_data: dict, output: Path) -> None:
+def _write_json_file(export_data: dict[str, Any], output: Path) -> None:
     """JSON形式でファイル出力"""
     with open(output, "w", encoding="utf-8") as f:
         json.dump(export_data, f, ensure_ascii=False, indent=2, default=str)
 
 
-def _write_csv_file(export_data: dict, output: Path) -> None:
+def _write_csv_file(export_data: dict[str, Any], output: Path) -> None:
     """CSV形式でファイル出力（スナップショットのみ）"""
     import csv
 
@@ -362,7 +364,9 @@ def _write_csv_file(export_data: dict, output: Path) -> None:
             writer.writerows(snapshots)
 
 
-def _show_export_success(output: Path, filtered_data: dict, verbose: bool) -> None:
+def _show_export_success(
+    output: Path, filtered_data: dict[str, Any], verbose: bool
+) -> None:
     """エクスポート成功メッセージを表示"""
     console.print(f"[green]✓ データを {output} にエクスポートしました[/green]")
 

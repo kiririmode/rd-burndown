@@ -10,7 +10,7 @@ from rich.table import Table
 from rich.traceback import install
 
 from .. import __version__
-from ..utils.config import get_config_manager
+from ..utils.config import Config, get_config_manager
 from .chart import add_chart_commands
 from .data import add_data_commands
 from .project import add_project_commands
@@ -137,7 +137,7 @@ def show(ctx: click.Context, output_format: str, section: Optional[str]) -> None
         _show_config_as_table(config, section)
 
 
-def _show_config_as_json(config, section: Optional[str]) -> None:
+def _show_config_as_json(config: Config, section: Optional[str]) -> None:
     """JSON形式で設定を表示"""
     import json
 
@@ -153,7 +153,7 @@ def _show_config_as_json(config, section: Optional[str]) -> None:
         console.print(json.dumps(config.model_dump(), indent=2, ensure_ascii=False))
 
 
-def _show_config_as_table(config, section: Optional[str]) -> None:
+def _show_config_as_table(config: Config, section: Optional[str]) -> None:
     """テーブル形式で設定を表示"""
     from rich.table import Table
 
