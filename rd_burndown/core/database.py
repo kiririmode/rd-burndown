@@ -19,7 +19,7 @@ class DatabaseError(Exception):
 class DatabaseManager:
     """SQLiteデータベース管理クラス"""
 
-    CURRENT_VERSION = 1
+    CURRENT_VERSION = 2
 
     def __init__(self, db_path: Union[str, Path]):
         """
@@ -209,6 +209,40 @@ class DatabaseManager:
 
         logger.info("Initial schema (v1) created successfully")
 
+    def _migrate_to_v2(self, conn: sqlite3.Connection) -> None:
+        """バージョン2へのマイグレーション - ticket_journalsテーブル追加"""
+
+        # チケット履歴テーブル
+        conn.execute("""
+            CREATE TABLE ticket_journals (
+                id INTEGER PRIMARY KEY,
+                project_id INTEGER NOT NULL REFERENCES projects(id),
+                ticket_id INTEGER NOT NULL,
+                journal_id INTEGER NOT NULL,
+                user_id INTEGER,
+                user_name TEXT,
+                created_on TIMESTAMP NOT NULL,
+                notes TEXT,
+                details TEXT,  -- JSON形式で変更詳細を保存
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(project_id, ticket_id, journal_id)
+            )
+        """)
+
+        # インデックス作成
+        conn.execute(
+            "CREATE INDEX idx_ticket_journals_project_id ON ticket_journals(project_id)"
+        )
+        conn.execute(
+            "CREATE INDEX idx_ticket_journals_ticket_id ON ticket_journals(ticket_id)"
+        )
+        conn.execute(
+            "CREATE INDEX idx_ticket_journals_created_on ON ticket_journals(created_on)"
+        )
+
+        logger.info("ticket_journals table (v2) created successfully")
+
     def vacuum_database(self) -> None:
         """データベースの最適化"""
         logger.info("Vacuuming database")
@@ -229,7 +263,13 @@ class DatabaseManager:
 
             # テーブル統計
             tables_info = {}
-            for table in ["projects", "tickets", "daily_snapshots", "scope_changes"]:
+            for table in [
+                "projects",
+                "tickets",
+                "daily_snapshots",
+                "scope_changes",
+                "ticket_journals",
+            ]:
                 try:
                     cursor = conn.execute(f"SELECT COUNT(*) FROM {table}")  # nosec B608
                     count = cursor.fetchone()[0]

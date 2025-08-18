@@ -19,5 +19,12 @@
   ],
   "runArgs": [
     "--network=rd-burndown_redmine-network"
-  ]
+  ],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "bierner.markdown-mermaid"
+      ]
+    }
+  }
 }

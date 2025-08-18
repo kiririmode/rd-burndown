@@ -59,7 +59,7 @@ class ChartConfig(BaseModel):
     """チャート設定"""
 
     font_family: str = Field(default="DejaVu Sans")
-    font_size: int = Field(default=12)
+    font_size: int = Field(default=8)  # フォントサイズを12から8に変更
     colors: ChartColors = Field(default_factory=ChartColors)
     line_styles: LineStyles = Field(default_factory=LineStyles)
 

@@ -9,7 +9,7 @@ from typing import Optional
 import matplotlib.pyplot as plt
 import seaborn as sns
 from matplotlib.axes import Axes
-from matplotlib.dates import DateFormatter, MonthLocator, date2num
+from matplotlib.dates import DateFormatter, date2num
 from matplotlib.figure import Figure
 
 from rd_burndown.core.calculator import get_burndown_calculator
@@ -590,31 +590,39 @@ class ChartGenerator:
                 project_name = f"Project {timeline.project_id}"
             ax.set_title(
                 f"{project_name} - {english_title}",
-                fontsize=16,
+                fontsize=12,  # タイトルフォントサイズを16から12に変更
                 fontweight="bold",
                 pad=20,
             )
-            ax.set_xlabel("Date", fontsize=12)
-            ax.set_ylabel("Remaining Hours", fontsize=12)
+            ax.set_xlabel("Date", fontsize=8)  # X軸ラベルフォントサイズを12から8に変更
+            ax.set_ylabel(
+                "Remaining Hours", fontsize=8
+            )  # Y軸ラベルフォントサイズを12から8に変更
         else:
             ax.set_title(
                 f"{timeline.project_name} - {title}",
-                fontsize=16,
+                fontsize=12,  # タイトルフォントサイズを16から12に変更
                 fontweight="bold",
                 pad=20,
             )
-            ax.set_xlabel("日付", fontsize=12)
-            ax.set_ylabel("残り工数 (時間)", fontsize=12)
+            ax.set_xlabel("日付", fontsize=8)  # X軸ラベルフォントサイズを12から8に変更
+            ax.set_ylabel(
+                "残り工数 (時間)", fontsize=8
+            )  # Y軸ラベルフォントサイズを12から8に変更
 
         # グリッド
         ax.grid(True, alpha=0.3, color=self.config.chart.colors.grid)
 
-        # 軸フォーマット
-        ax.xaxis.set_major_locator(MonthLocator())
-        ax.xaxis.set_major_formatter(DateFormatter("%Y-%m"))
+        # 軸フォーマット（日付フォーマットを%Y-%m-%dに変更）
+        from matplotlib.dates import DayLocator
 
-        # 凡例
-        ax.legend(loc="upper right", frameon=True, fancybox=True, shadow=True)
+        ax.xaxis.set_major_locator(DayLocator(interval=2))  # 2日間隔で表示
+        ax.xaxis.set_major_formatter(DateFormatter("%Y-%m-%d"))  # yyyy-mm-dd形式に変更
+
+        # 凡例（フォントサイズを小さく）
+        ax.legend(
+            loc="upper right", frameon=True, fancybox=True, shadow=True, fontsize=8
+        )
 
         # 背景色
         ax.set_facecolor(self.config.chart.colors.background)
@@ -631,8 +639,13 @@ class ChartGenerator:
         end_num = date2num(timeline.end_date or date.today())
         ax.set_xlim(start_num, end_num)
 
-        # 軸ラベルの回転
-        plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha="right")
+        # 軸ラベルの回転（フォントサイズも小さく）
+        plt.setp(
+            ax.xaxis.get_majorticklabels(), rotation=45, ha="right", fontsize=6
+        )  # 目盛りフォントサイズを追加
+        plt.setp(
+            ax.yaxis.get_majorticklabels(), fontsize=6
+        )  # Y軸目盛りフォントサイズを追加
 
 
 def get_chart_generator() -> ChartGenerator:

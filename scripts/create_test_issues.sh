@@ -5,6 +5,13 @@ echo "🎫 テストチケットを作成中..."
 API_KEY="048110ce3e4a78b218aede2826b01fbc90dff412"  # pragma: allowlist secret
 BASE_URL="http://localhost:3000"
 
+# 既存のテストチケットをクリア（重複回避のため）
+echo "🧹 既存チケットのクリア..."
+docker exec redmine-db psql -U redmine -d redmine -c "
+DELETE FROM issues WHERE project_id = 1;
+DELETE FROM journals WHERE journalized_type = 'Issue' AND journalized_id NOT IN (SELECT id FROM issues);
+" 2>/dev/null || echo "⚠️  チケットクリアで警告が発生しましたが続行します"
+
 # チケットデータ配列
 create_issue() {
     local subject="$1"
@@ -54,6 +61,17 @@ create_issue "API仕様書の作成" "RESTful APIの仕様書をOpenAPIで作成
 create_issue "ユーザー管理機能の改善" "管理者による一括ユーザー操作機能" 2 1 6 20.0 3
 create_issue "パフォーマンス最適化" "データベースクエリの最適化とキャッシュ実装" 2 2 7 24.0 3
 create_issue "モバイル対応" "レスポンシブデザインの実装" 2 1 6 32.0 3
+
+echo ""
+echo "📅 チケット作成日を2025-08-10に統一中..."
+
+# 全チケットの作成日を8/10に設定（バーンダウンチャート用）
+docker exec redmine-db psql -U redmine -d redmine -c "
+UPDATE issues
+SET created_on = '2025-08-10 08:00:00'::timestamp,
+    updated_on = '2025-08-10 08:00:00'::timestamp
+WHERE project_id = 1;
+" 2>/dev/null || echo "⚠️  チケット日付設定で警告が発生"
 
 echo ""
 echo "🎉 テストチケットの作成が完了しました！"

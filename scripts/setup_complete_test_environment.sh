@@ -130,6 +130,14 @@ docker exec redmine curl -s -X POST \
     }' \
     "$BASE_URL/projects.json" > /dev/null
 
+# プロジェクトの開始日・終了日を設定（バーンダウンチャート用）
+docker exec redmine-db psql -U redmine -d redmine -c "
+UPDATE projects
+SET created_on = '2025-08-10 08:00:00'::timestamp,
+    updated_on = '2025-08-10 08:00:00'::timestamp
+WHERE identifier = 'test-project';
+" 2>/dev/null || echo "⚠️  プロジェクト日付設定に失敗"
+
 # プロジェクトとトラッカーの関連付け、管理者のメンバー登録
 docker exec redmine-db psql -U redmine -d redmine -c "
 -- プロジェクトにトラッカーを関連付け
@@ -164,7 +172,32 @@ echo "6️⃣ テストチケットの作成..."
 ./scripts/create_test_issues.sh > /dev/null
 
 echo ""
-echo "7️⃣ セットアップ完了テストを実行中..."
+echo "7️⃣ バーンダウンチャート用テストデータの作成..."
+./scripts/create_burndown_test_data.sh > /dev/null
+
+echo ""
+echo "8️⃣ rd-burndownプロジェクト同期..."
+# DevContainer環境でのネットワーク接続設定
+export RD_REDMINE_URL="http://172.17.0.1:3000"
+export RD_REDMINE_API_KEY="$API_KEY"
+
+# プロジェクト同期実行
+if command -v uv >/dev/null 2>&1; then
+    echo "   rd-burndownプロジェクト同期を実行中..."
+    uv run rd-burndown project sync 1 > /dev/null 2>&1
+    if [ $? -eq 0 ]; then
+        echo "   ✅ プロジェクト同期完了"
+    else
+        echo "   ⚠️  プロジェクト同期で警告が発生（手動同期を推奨）"
+        echo "   手動同期コマンド: export RD_REDMINE_URL=\"http://172.17.0.1:3000\" && export RD_REDMINE_API_KEY=\"$API_KEY\" && uv run rd-burndown project sync 1"
+    fi
+else
+    echo "   ⚠️  uvコマンドが見つかりません。手動でプロジェクト同期を実行してください"
+    echo "   手動同期コマンド: export RD_REDMINE_URL=\"http://172.17.0.1:3000\" && export RD_REDMINE_API_KEY=\"$API_KEY\" && uv run rd-burndown project sync 1"
+fi
+
+echo ""
+echo "9️⃣ セットアップ完了テストを実行中..."
 
 # テスト関数の定義
 test_redmine_connection() {
@@ -327,6 +360,11 @@ if [ $FAILED_TESTS -eq 0 ]; then
     echo "   プロジェクト: http://localhost:3000/projects/test-project"
     echo "   チケット一覧: http://localhost:3000/projects/test-project/issues"
     echo "   バージョン一覧: http://localhost:3000/projects/test-project/versions"
+    echo ""
+    echo "🎯 バーンダウンチャート生成コマンド:"
+    echo "   export RD_REDMINE_URL=\"http://172.17.0.1:3000\""
+    echo "   export RD_REDMINE_API_KEY=\"$API_KEY\""
+    echo "   uv run rd-burndown chart burndown 1 --output burndown_chart.png"
     exit 0
 else
     echo "🔧 問題解決のヒント:"

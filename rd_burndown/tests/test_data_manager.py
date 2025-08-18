@@ -119,6 +119,7 @@ class TestDataManager:
             mock_redmine_client.get_project_versions.return_value = []
             mock_redmine_client.get_project_tickets.return_value = []
             mock_redmine_client.get_updated_tickets.return_value = []
+            mock_redmine_client.get_all_project_journals.return_value = []
 
             mock_get_cm.return_value = mock_config_manager
             mock_get_db.return_value = mock_db_manager
@@ -189,6 +190,7 @@ class TestDataManager:
         data_manager.redmine_client.get_project_data.return_value = project_data
         data_manager.redmine_client.get_project_versions.return_value = []
         data_manager.redmine_client.get_project_tickets.return_value = tickets_data
+        data_manager.redmine_client.get_all_project_journals.return_value = []
 
         result = data_manager.sync_project(1)
 
@@ -323,6 +325,7 @@ class TestDataManager:
         data_manager.redmine_client.get_project_data.return_value = project_data
         data_manager.redmine_client.get_project_versions.return_value = []
         data_manager.redmine_client.get_project_tickets.return_value = tickets_data
+        data_manager.redmine_client.get_all_project_journals.return_value = []
 
         result = data_manager.sync_project(1)
 
@@ -366,6 +369,7 @@ class TestDataManager:
         data_manager.redmine_client.get_project_data.return_value = project_data
         data_manager.redmine_client.get_project_versions.return_value = []
         data_manager.redmine_client.get_project_tickets.return_value = tickets_data
+        data_manager.redmine_client.get_all_project_journals.return_value = []
 
         result = data_manager.sync_project(1)
 

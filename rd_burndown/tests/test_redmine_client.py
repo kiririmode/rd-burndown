@@ -366,6 +366,7 @@ class TestRedmineClient:
                 "limit": 100,
                 "offset": 0,
                 "include": "journals,relations",
+                "status_id": "*",
             },
         )
 
@@ -441,7 +442,7 @@ class TestRedmineClient:
         mock_make_request.assert_called_once_with(
             "GET",
             "/issues/1.json",
-            params={"include": "journals,relations,watchers,children"},
+            params={"include": "journals,relations,watchers,children,details"},
         )
 
     @patch.object(RedmineClient, "_make_request")

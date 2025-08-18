@@ -2,6 +2,7 @@
 
 import contextlib
 import json
+import logging
 import time
 from datetime import date, datetime
 from typing import Any, Optional
@@ -12,6 +13,8 @@ from urllib3.util.retry import Retry
 
 from rd_burndown.core.models import RedmineProject, TicketData
 from rd_burndown.utils.config import Config
+
+logger = logging.getLogger(__name__)
 
 
 class RedmineAPIError(Exception):
@@ -165,7 +168,9 @@ class RedmineClient:
         if updated_since:
             params["updated_on"] = f">={updated_since.strftime('%Y-%m-%dT%H:%M:%SZ')}"
 
-        if not include_closed:
+        if include_closed:
+            params["status_id"] = "*"  # 全ステータス（完了チケットも含む）
+        else:
             params["status_id"] = "open"
 
         return self._make_request("GET", "/issues.json", params=params)
@@ -173,11 +178,99 @@ class RedmineClient:
     def get_issue(self, issue_id: int) -> dict[str, Any]:
         """チケット詳細取得"""
         params = {
-            "include": "journals,relations,watchers,children",
+            "include": "journals,relations,watchers,children,details",
         }
 
         response = self._make_request("GET", f"/issues/{issue_id}.json", params=params)
         return response.get("issue", {})
+
+    def get_issue_journals(self, issue_id: int) -> list[dict[str, Any]]:
+        """チケットの履歴（journals）取得"""
+        params = {
+            "include": "details",
+        }
+
+        response = self._make_request("GET", f"/issues/{issue_id}.json", params=params)
+        issue = response.get("issue", {})
+        return issue.get("journals", [])
+
+    def get_project_journals(
+        self,
+        project_id: int,
+        limit: int = 100,
+        offset: int = 0,
+        updated_since: Optional[datetime] = None,
+    ) -> list[dict[str, Any]]:
+        """プロジェクトの全チケットのjournalsを取得"""
+        # まずプロジェクトの全チケットを取得
+        issues_response = self.get_issues(
+            project_id=project_id,
+            limit=limit,
+            offset=offset,
+            updated_since=updated_since,
+            include_closed=True,
+        )
+
+        all_journals = []
+        for issue in issues_response.get("issues", []):
+            issue_id = issue["id"]
+            journals = issue.get("journals", [])
+
+            # 各journalにissue_idとproject_idを追加
+            for journal in journals:
+                journal["issue_id"] = issue_id
+                journal["project_id"] = project_id
+                all_journals.append(journal)
+
+        return all_journals
+
+    def get_all_project_journals(
+        self,
+        project_id: int,
+        updated_since: Optional[datetime] = None,
+    ) -> list[dict[str, Any]]:
+        """プロジェクトの全journalsを取得（ページング対応）"""
+        all_journals: list[dict[str, Any]] = []
+        offset = 0
+        limit = 100
+
+        while True:
+            response = self.get_issues(
+                project_id=project_id,
+                limit=limit,
+                offset=offset,
+                updated_since=updated_since,
+                include_closed=True,
+            )
+
+            issues = response.get("issues", [])
+            if not issues:
+                break
+
+            # 各issueの詳細なjournalsを個別取得
+            for issue in issues:
+                issue_id = issue["id"]
+                try:
+                    # 個別にチケット詳細を取得してjournalsを取得
+                    detailed_issue = self.get_issue(issue_id)
+                    journals = detailed_issue.get("journals", [])
+
+                    for journal in journals:
+                        journal["issue_id"] = issue_id
+                        journal["project_id"] = project_id
+                        all_journals.append(journal)
+                except Exception as e:
+                    logger.warning(f"Failed to get journals for issue {issue_id}: {e}")
+                    continue
+
+            # ページング判定
+            total_count = response.get("total_count", 0)
+            if offset + limit >= total_count:
+                break
+
+            offset += limit
+
+        return all_journals
 
     def get_all_project_issues(
         self,

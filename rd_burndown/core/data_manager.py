@@ -68,6 +68,9 @@ class DataManager:
             # チケットデータの保存
             self._save_tickets(tickets)
 
+            # チケット履歴（journals）の同期
+            self.sync_project_journals(project_id, force=force)
+
             # 日次スナップショットの構築
             self._build_daily_snapshots(project_id)
 
@@ -172,6 +175,9 @@ class DataManager:
                 )
                 conn.execute(
                     "DELETE FROM daily_snapshots WHERE project_id = ?", (project_id,)
+                )
+                conn.execute(
+                    "DELETE FROM ticket_journals WHERE project_id = ?", (project_id,)
                 )
                 conn.execute("DELETE FROM tickets WHERE project_id = ?", (project_id,))
                 conn.execute("DELETE FROM projects WHERE id = ?", (project_id,))
@@ -331,6 +337,92 @@ class DataManager:
 
         self.db_manager.execute_many(query, ticket_data)
 
+    def _save_ticket_journals(
+        self, project_id: int, journals: list[dict[str, Any]]
+    ) -> None:
+        """チケット履歴データの保存"""
+        if not journals:
+            return
+
+        journal_data = []
+        for journal in journals:
+            journal_data.append(
+                (
+                    project_id,
+                    journal.get("issue_id"),
+                    journal.get("id"),
+                    journal.get("user", {}).get("id"),
+                    journal.get("user", {}).get("name"),
+                    journal.get("created_on"),
+                    journal.get("notes", ""),
+                    json.dumps(journal.get("details", []))
+                    if journal.get("details")
+                    else None,
+                    datetime.now(),
+                )
+            )
+
+        query = """
+            INSERT OR REPLACE INTO ticket_journals
+            (project_id, ticket_id, journal_id, user_id, user_name,
+             created_on, notes, details, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """
+
+        self.db_manager.execute_many(query, journal_data)
+
+    def sync_project_journals(self, project_id: int, force: bool = False) -> None:
+        """
+        プロジェクトのチケット履歴（journals）を同期
+
+        Args:
+            project_id: プロジェクトID
+            force: 強制全件同期
+        """
+        logger.info(f"Starting journals sync for project {project_id}")
+
+        try:
+            # journalsデータの取得
+            journals = self.redmine_client.get_all_project_journals(project_id)
+
+            if journals:
+                # journalsデータの保存
+                self._save_ticket_journals(project_id, journals)
+                logger.info(
+                    f"Saved {len(journals)} journal entries for project {project_id}"
+                )
+            else:
+                logger.info(f"No journals found for project {project_id}")
+
+        except Exception as e:
+            logger.error(f"Failed to sync journals for project {project_id}: {e}")
+            raise DataManagerError(f"Failed to sync journals: {e}") from e
+
+    def _get_ticket_journals(
+        self, project_id: int, ticket_id: Optional[int] = None
+    ) -> list[dict[str, Any]]:
+        """チケット履歴の取得"""
+        with self.db_manager.get_connection(read_only=True) as conn:
+            if ticket_id:
+                rows = conn.execute(
+                    """
+                    SELECT * FROM ticket_journals
+                    WHERE project_id = ? AND ticket_id = ?
+                    ORDER BY created_on
+                    """,
+                    (project_id, ticket_id),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    """
+                    SELECT * FROM ticket_journals
+                    WHERE project_id = ?
+                    ORDER BY created_on
+                    """,
+                    (project_id,),
+                ).fetchall()
+            return [dict(row) for row in rows]
+
     def _build_daily_snapshots(self, project_id: int) -> None:
         """日次スナップショットの構築"""
         logger.info(f"Building daily snapshots for project {project_id}")
@@ -373,7 +465,7 @@ class DataManager:
             current_date += timedelta(days=1)
 
     def _create_daily_snapshot(self, project_id: int, target_date: date) -> None:
-        """指定日の日次スナップショットを作成"""
+        """指定日の日次スナップショットを作成（履歴データ対応）"""
         with self.db_manager.get_connection() as conn:
             # その日時点でのチケット状態を計算
             total_hours = 0.0
@@ -384,7 +476,7 @@ class DataManager:
             # チケット情報を取得（その日時点での状態）
             cursor = conn.execute(
                 """
-                SELECT estimated_hours, status_id, completed_on
+                SELECT id, estimated_hours, status_id, status_name, created_on
                 FROM tickets
                 WHERE project_id = ?
                 AND DATE(created_on) <= ?
@@ -393,23 +485,25 @@ class DataManager:
             )
 
             for row in cursor.fetchall():
+                ticket_id = row["id"]
                 estimated_hours = row["estimated_hours"] or 0.0
-                completed_on = row["completed_on"]
 
                 total_hours += estimated_hours
 
-                # 完了判定（その日時点で完了していたか）
-                if completed_on:
-                    try:
-                        completed_date = datetime.fromisoformat(completed_on).date()
-                        if completed_date <= target_date:
-                            completed_hours += estimated_hours
-                            completed_count += 1
-                        else:
-                            active_count += 1
-                    except (ValueError, TypeError):
-                        # 日付変換に失敗した場合は未完了として扱う
-                        active_count += 1
+                # journalsデータを使用してその日時点でのステータスを判定
+                status_at_date = self._get_ticket_status_at_date(
+                    project_id, ticket_id, target_date
+                )
+
+                # ステータスが取得できない場合は、その日がチケット作成日より後かで判定
+                if not status_at_date:
+                    created_date = datetime.fromisoformat(row["created_on"]).date()
+                    if target_date >= created_date:
+                        status_at_date = "New"  # デフォルトは新規
+
+                if self._is_ticket_completed(status_at_date):
+                    completed_hours += estimated_hours
+                    completed_count += 1
                 else:
                     active_count += 1
 
@@ -435,6 +529,53 @@ class DataManager:
                 ),
             )
             conn.commit()
+
+    def _get_ticket_status_at_date(
+        self, project_id: int, ticket_id: int, target_date: date
+    ) -> Optional[str]:
+        """指定日時点でのチケットステータスを取得（notesから推測）"""
+        with self.db_manager.get_connection(read_only=True) as conn:
+            # その日時点での最新のステータス変更をnotesから推測
+            cursor = conn.execute(
+                """
+                SELECT notes, created_on FROM ticket_journals
+                WHERE project_id = ? AND ticket_id = ?
+                AND DATE(created_on) <= ?
+                AND notes IS NOT NULL
+                ORDER BY created_on DESC
+                LIMIT 1
+                """,
+                (project_id, ticket_id, target_date),
+            )
+
+            result = cursor.fetchone()
+            if result and result["notes"]:
+                notes = result["notes"]
+                # notesからステータスを推測
+                if "完了" in notes:
+                    return "Closed"
+                if "解決" in notes:
+                    return "Resolved"
+                if "進行中" in notes:
+                    return "In Progress"
+                if "新規" in notes or "New" in notes:
+                    return "New"
+
+            # journalsに履歴がない場合は、現在のステータスを使用
+            cursor = conn.execute(
+                "SELECT status_name FROM tickets WHERE id = ?", (ticket_id,)
+            )
+            result = cursor.fetchone()
+            return result["status_name"] if result else None
+
+    def _is_ticket_completed(self, status_name: Optional[str]) -> bool:
+        """ステータス名から完了判定（Closedのみを完了とする）"""
+        if not status_name:
+            return False
+
+        # 完了ステータスの名前（Closedのみ）
+        completed_statuses = ["完了", "Closed", "クローズ"]
+        return status_name in completed_statuses
 
     def _detect_scope_changes(
         self, project_id: int, updated_tickets: list[TicketData]

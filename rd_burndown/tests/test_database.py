@@ -43,7 +43,7 @@ class TestDatabaseManager:
 
         info = manager.get_database_info()
 
-        assert info["version"] == 1
+        assert info["version"] == 2
         assert info["file_path"] == str(db_path)
         assert info["file_size_bytes"] > 0
         assert "projects" in info["tables"]
