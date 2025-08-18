@@ -104,6 +104,7 @@ class ChartGenerator:
         output_path: Optional[Path] = None,
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
+        ideal_start_date: Optional[date] = None,
         width: int = 1200,
         height: int = 800,
         dpi: int = 300,
@@ -116,6 +117,7 @@ class ChartGenerator:
             output_path: 出力パス
             start_date: 開始日
             end_date: 終了日
+            ideal_start_date: 理想線開始日（指定した日の残工数から理想線を開始）
             width: 幅
             height: 高さ
             dpi: DPI
@@ -132,7 +134,9 @@ class ChartGenerator:
             )
 
             # チャート作成
-            fig = self._create_burndown_chart(timeline, width, height, dpi)
+            fig = self._create_burndown_chart(
+                timeline, width, height, dpi, ideal_start_date
+            )
 
             # 出力パス決定
             if output_path is None:
@@ -274,14 +278,19 @@ class ChartGenerator:
             raise ChartGeneratorError(f"Failed to generate combined chart: {e}") from e
 
     def _create_burndown_chart(
-        self, timeline: ProjectTimeline, width: int, height: int, dpi: int
+        self,
+        timeline: ProjectTimeline,
+        width: int,
+        height: int,
+        dpi: int,
+        ideal_start_date: Optional[date] = None,
     ) -> Figure:
         """標準バーンダウンチャート作成"""
         # 図のサイズ設定
         fig, ax = plt.subplots(figsize=(width / dpi, height / dpi), dpi=dpi)
 
         # データ準備と検証
-        chart_data = self._prepare_burndown_chart_data(timeline)
+        chart_data = self._prepare_burndown_chart_data(timeline, ideal_start_date)
 
         # ラインを描画
         self._plot_ideal_line(ax, chart_data["ideal_line"])
@@ -295,9 +304,13 @@ class ChartGenerator:
 
         return fig
 
-    def _prepare_burndown_chart_data(self, timeline: ProjectTimeline) -> dict:
+    def _prepare_burndown_chart_data(
+        self, timeline: ProjectTimeline, ideal_start_date: Optional[date] = None
+    ) -> dict:
         """バーンダウンチャート用データを準備"""
-        ideal_line = self.calculator.calculate_ideal_line(timeline)
+        ideal_line = self.calculator.calculate_ideal_line(
+            timeline, start_from_date=ideal_start_date
+        )
         actual_line = self.calculator.calculate_actual_line(timeline)
 
         if not ideal_line:

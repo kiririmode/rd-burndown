@@ -14,7 +14,9 @@ def get_business_days(
     business_days: list[date] = []
     current_date = start_date
 
-    country_holidays: Any = holidays.country_holidays(country) if exclude_holidays else {}
+    country_holidays: Any = (
+        holidays.country_holidays(country) if exclude_holidays else {}
+    )
 
     while current_date <= end_date:
         # 土日をスキップし、かつ祝日でない場合のみ追加

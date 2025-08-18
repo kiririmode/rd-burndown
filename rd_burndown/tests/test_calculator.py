@@ -159,6 +159,46 @@ class TestBurndownCalculator:
         assert isinstance(result, list)
         assert len(result) > 0
 
+    def test_get_remaining_hours_for_date_success(self, calculator, sample_timeline):
+        """指定日の残工数取得 - 成功"""
+        target_date = date(2024, 1, 15)
+        result = calculator._get_remaining_hours_for_date(sample_timeline, target_date)
+        assert result == 50.0
+
+    def test_get_remaining_hours_for_date_not_found(self, calculator, sample_timeline):
+        """指定日の残工数取得 - データなし"""
+        target_date = date(2024, 1, 20)  # 存在しない日付
+        result = calculator._get_remaining_hours_for_date(sample_timeline, target_date)
+        assert result is None
+
+    def test_calculate_ideal_line_with_start_from_date(
+        self, calculator, sample_timeline
+    ):
+        """理想線計算 - 指定日から開始"""
+        start_from_date = date(2024, 1, 15)  # この日の残工数は50.0
+        result = calculator.calculate_ideal_line(
+            sample_timeline, start_from_date=start_from_date
+        )
+
+        # 理想線が指定日から開始されることを確認
+        assert len(result) > 0
+        assert result[0][0] == start_from_date
+        assert result[0][1] == 50.0  # 指定日の残工数から開始  # 指定日の残工数から開始
+
+    def test_calculate_ideal_line_with_start_from_date_not_found(
+        self, calculator, sample_timeline
+    ):
+        """理想線計算 - 指定日のデータなし（初期工数にフォールバック）"""
+        start_from_date = date(2024, 1, 20)  # 存在しない日付
+        result = calculator.calculate_ideal_line(
+            sample_timeline, start_from_date=start_from_date
+        )
+
+        # プロジェクト開始日から開始される（フォールバック）
+        assert len(result) > 0
+        assert result[0][0] == sample_timeline.start_date
+        assert result[0][1] == 100.0  # 初期総工数から開始  # 初期総工数から開始
+
     def test_calculate_actual_line_success(self, calculator, sample_timeline):
         """Test successful actual line calculation."""
         result = calculator.calculate_actual_line(sample_timeline)

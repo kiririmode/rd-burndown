@@ -1,6 +1,8 @@
 """チャートCLIコマンドのテスト"""
 
-from unittest.mock import Mock, patch
+from datetime import date
+from pathlib import Path
+from unittest.mock import MagicMock, Mock, patch
 
 from click.testing import CliRunner
 
@@ -42,6 +44,37 @@ class TestChartCommands:
             chart, ["burndown", "1", "--output", "test.png"], obj={"verbose": False}
         )
         assert result.exit_code == 1
+
+    @patch("rd_burndown.cli.chart.get_chart_generator")
+    def test_burndown_chart_with_ideal_start_date(self, mock_get_generator):
+        """バーンダウンチャート生成（理想線開始日指定）"""
+        mock_generator = MagicMock()
+        mock_get_generator.return_value = mock_generator
+        mock_generator.generate_burndown_chart.return_value = Path("/test/chart.png")
+
+        runner = CliRunner()
+        result = runner.invoke(
+            chart,
+            ["burndown", "123", "--ideal-start-date", "2024-01-02"],
+            obj={"verbose": False},  # contextオブジェクトを追加
+        )
+
+        # デバッグ出力
+        if result.exit_code != 0:
+            print(f"Output: {result.output}")
+            print(f"Exception: {result.exception}")
+
+        assert result.exit_code == 0
+        mock_generator.generate_burndown_chart.assert_called_once_with(
+            project_id=123,
+            output_path=None,
+            start_date=None,
+            end_date=None,
+            ideal_start_date=date(2024, 1, 2),
+            width=1200,
+            height=800,
+            dpi=300,
+        )
 
     @patch("rd_burndown.cli.chart.get_chart_generator")
     def test_scope_chart_generate(self, mock_get_generator):

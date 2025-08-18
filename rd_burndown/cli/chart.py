@@ -28,6 +28,11 @@ def chart(ctx: click.Context) -> None:
 @click.option(
     "--to", "to_date", type=click.DateTime(formats=["%Y-%m-%d"]), help="終了日"
 )
+@click.option(
+    "--ideal-start-date",
+    type=click.DateTime(formats=["%Y-%m-%d"]),
+    help="理想線開始日（指定した日の残工数から理想線を開始）",
+)
 @click.option("--width", type=int, default=1200, help="幅")
 @click.option("--height", type=int, default=800, help="高さ")
 @click.option("--dpi", type=int, default=300, help="DPI")
@@ -38,6 +43,7 @@ def burndown(
     output: Optional[Path],
     from_date: Optional[datetime],
     to_date: Optional[datetime],
+    ideal_start_date: Optional[datetime],
     width: int,
     height: int,
     dpi: int,
@@ -52,6 +58,7 @@ def burndown(
     # 日付変換
     start_date = from_date.date() if from_date else None
     end_date = to_date.date() if to_date else None
+    ideal_start = ideal_start_date.date() if ideal_start_date else None
 
     console.print(
         f"[blue]プロジェクト {project_id} のバーンダウンチャートを生成中...[/blue]"
@@ -70,6 +77,7 @@ def burndown(
                 output_path=output,
                 start_date=start_date,
                 end_date=end_date,
+                ideal_start_date=ideal_start,
                 width=width,
                 height=height,
                 dpi=dpi,

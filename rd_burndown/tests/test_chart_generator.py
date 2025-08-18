@@ -45,6 +45,13 @@ class TestChartGenerator:
             mock_config.output.output_dir = "output"
             mock_config.output.default_dpi = 300
             mock_config.chart.font_size = 12
+            # チャートスタイル設定を追加
+            mock_config.chart.colors.ideal = "blue"
+            mock_config.chart.colors.actual = "red"
+            mock_config.chart.colors.grid = "gray"
+            mock_config.chart.colors.background = "white"
+            mock_config.chart.line_styles.ideal = "-"
+            mock_config.chart.line_styles.actual = "-"
             mock_config_manager.load_config.return_value = mock_config
 
             # Setup calculator mock
@@ -140,6 +147,66 @@ class TestChartGenerator:
 
                 assert result_path == output_path
                 mock_fig.savefig.assert_called_once()
+
+    def test_generate_burndown_chart_with_ideal_start_date(
+        self, chart_generator, tmp_path
+    ):
+        """バーンダウンチャート生成（理想線開始日指定）"""
+        # プロジェクトタイムラインのモック作成
+        timeline = ProjectTimeline(
+            project_id=1,
+            project_name="Test Project",
+            start_date=date(2024, 1, 1),
+            end_date=date(2024, 1, 10),
+            snapshots=[
+                {
+                    "date": "2024-01-01",
+                    "total_estimated_hours": 40.0,
+                    "remaining_hours": 40.0,
+                },
+                {
+                    "date": "2024-01-02",
+                    "total_estimated_hours": 40.0,
+                    "remaining_hours": 30.0,
+                },
+                {
+                    "date": "2024-01-03",
+                    "total_estimated_hours": 40.0,
+                    "remaining_hours": 20.0,
+                },
+            ],
+            scope_changes=[],
+        )
+
+        # カリキュレーターのモック設定
+        chart_generator.calculator.calculate_project_timeline.return_value = timeline
+        chart_generator.calculator.calculate_ideal_line.return_value = [
+            (date(2024, 1, 2), 30.0),  # 指定日から開始
+            (date(2024, 1, 3), 20.0),
+            (date(2024, 1, 4), 10.0),
+        ]
+        chart_generator.calculator.calculate_actual_line.return_value = [
+            (date(2024, 1, 1), 40.0),
+            (date(2024, 1, 2), 30.0),
+            (date(2024, 1, 3), 20.0),
+        ]
+
+        ideal_start_date = date(2024, 1, 2)
+        output_path = tmp_path / "test_ideal_start.png"
+
+        # メソッド実行
+        result_path = chart_generator.generate_burndown_chart(
+            project_id=1, output_path=output_path, ideal_start_date=ideal_start_date
+        )
+
+        # 結果検証
+        assert result_path == output_path
+        assert output_path.exists()
+
+        # 理想線計算が正しいパラメータで呼ばれることを確認
+        chart_generator.calculator.calculate_ideal_line.assert_called_with(
+            timeline, start_from_date=ideal_start_date
+        )
 
     def test_generate_burndown_chart_calculation_error(self, chart_generator):
         """Test burndown chart generation with calculation error."""

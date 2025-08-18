@@ -90,7 +90,10 @@ class BurndownCalculator:
             raise CalculatorError(f"Failed to calculate project timeline: {e}") from e
 
     def calculate_ideal_line(
-        self, timeline: ProjectTimeline, exclude_weekends: bool = False
+        self,
+        timeline: ProjectTimeline,
+        exclude_weekends: bool = False,
+        start_from_date: Optional[date] = None,
     ) -> list[tuple[date, float]]:
         """
         理想線の計算
@@ -98,6 +101,8 @@ class BurndownCalculator:
         Args:
             timeline: プロジェクト時系列データ
             exclude_weekends: 週末を除外するか
+            start_from_date: 理想線を開始する日付。指定された場合、
+                           その日の残工数から理想線を開始する
 
         Returns:
             理想線データ（日付, 残り工数）のリスト
@@ -105,11 +110,25 @@ class BurndownCalculator:
         if not timeline.snapshots:
             return []
 
-        # 初期総工数（最初のスナップショットから取得）
-        initial_hours = timeline.snapshots[0]["total_estimated_hours"]
+        # 理想線の開始点を決定
+        if start_from_date is not None:
+            # 指定された日付の残工数を取得
+            start_hours = self._get_remaining_hours_for_date(timeline, start_from_date)
+            if start_hours is None:
+                # 指定された日付のデータがない場合、エラーまたは警告
+                logger.warning(
+                    f"No data found for date {start_from_date}, using initial hours"
+                )
+                start_hours = timeline.snapshots[0]["total_estimated_hours"]
+                start_date = timeline.start_date
+            else:
+                start_date = start_from_date
+        else:
+            # 従来通り初期総工数から開始
+            start_hours = timeline.snapshots[0]["total_estimated_hours"]
+            start_date = timeline.start_date
 
         # プロジェクト期間の計算
-        start_date = timeline.start_date
         end_date = timeline.end_date or date.today()
 
         if exclude_weekends:
@@ -118,15 +137,15 @@ class BurndownCalculator:
             total_days = (end_date - start_date).days
 
         if total_days <= 0:
-            return [(start_date, initial_hours), (end_date, 0.0)]
+            return [(start_date, start_hours), (end_date, 0.0)]
 
         # 1日あたりの理想的な工数減少量
-        daily_burn_rate = initial_hours / total_days
+        daily_burn_rate = start_hours / total_days
 
         # 理想線の計算
         ideal_line = []
         current_date = start_date
-        current_hours = initial_hours
+        current_hours = start_hours
 
         while current_date <= end_date:
             ideal_line.append((current_date, max(0.0, current_hours)))
@@ -264,6 +283,25 @@ class BurndownCalculator:
             if snapshot_date == target_date:
                 return snapshot["completed_hours"]
         return 0.0
+
+    def _get_remaining_hours_for_date(
+        self, timeline: ProjectTimeline, target_date: date
+    ) -> Optional[float]:
+        """
+        指定した日の残工数を取得
+
+        Args:
+            timeline: プロジェクト時系列データ
+            target_date: 対象日
+
+        Returns:
+            指定した日の残工数。該当日のデータがない場合はNone
+        """
+        for snapshot in timeline.snapshots:
+            snapshot_date = datetime.fromisoformat(snapshot["date"]).date()
+            if snapshot_date == target_date:
+                return snapshot["remaining_hours"]
+        return None
 
     def calculate_scope_trend_line(
         self, timeline: ProjectTimeline
