@@ -38,6 +38,8 @@ class TestDataManager:
             mock_config_manager = Mock()
             mock_config = Mock()
             mock_config.data.cache_dir = "cache"
+            # 完了ステータスの設定を追加
+            mock_config.data.completed_statuses = ["完了", "Closed", "クローズ"]
             mock_config_manager.load_config.return_value = mock_config
 
             # Mock database manager with context manager support
@@ -391,6 +393,43 @@ class TestDataManager:
         data_manager.db_manager.get_scope_changes.return_value = []
         result = data_manager._get_scope_changes(1)
         assert result == []
+
+    def test_is_ticket_completed_default_statuses(self, data_manager):
+        """チケット完了判定 - デフォルト設定"""
+        # デフォルト設定での完了ステータス
+        assert data_manager._is_ticket_completed("完了") is True
+        assert data_manager._is_ticket_completed("Closed") is True
+        assert data_manager._is_ticket_completed("クローズ") is True
+
+        # 非完了ステータス
+        assert data_manager._is_ticket_completed("解決") is False
+        assert data_manager._is_ticket_completed("Resolved") is False
+        assert data_manager._is_ticket_completed("進行中") is False
+        assert data_manager._is_ticket_completed("In Progress") is False
+        assert data_manager._is_ticket_completed("新規") is False
+        assert data_manager._is_ticket_completed("New") is False
+        assert data_manager._is_ticket_completed(None) is False
+        assert data_manager._is_ticket_completed("") is False
+
+    def test_is_ticket_completed_custom_statuses(self, data_manager):
+        """チケット完了判定 - カスタム設定"""
+        # 設定を変更
+        data_manager.config.data.completed_statuses = ["解決", "Done", "終了"]
+
+        # カスタム完了ステータス
+        assert data_manager._is_ticket_completed("解決") is True
+        assert data_manager._is_ticket_completed("Done") is True
+        assert data_manager._is_ticket_completed("終了") is True
+
+        # 元のデフォルトステータスは非完了扱い
+        assert data_manager._is_ticket_completed("完了") is False
+        assert data_manager._is_ticket_completed("Closed") is False
+        assert data_manager._is_ticket_completed("クローズ") is False
+
+        # その他の非完了ステータス
+        assert data_manager._is_ticket_completed("進行中") is False
+        assert data_manager._is_ticket_completed("新規") is False
+        assert data_manager._is_ticket_completed(None) is False
 
 
 class TestGetDataManager:

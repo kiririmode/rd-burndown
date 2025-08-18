@@ -168,6 +168,10 @@ data:
   database_path: "data/burndown.db"
   cache_dir: "cache/"
   cache_ttl_hours: 24
+  completed_statuses:
+    - "完了"
+    - "Closed"
+    - "クローズ"
 
 chart:
   font_size: 8

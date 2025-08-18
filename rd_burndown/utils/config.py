@@ -71,6 +71,10 @@ class DataConfig(BaseModel):
     cache_ttl_hours: int = Field(default=1)
     incremental_sync: bool = Field(default=True)
     max_batch_size: int = Field(default=100)
+    completed_statuses: list[str] = Field(
+        default=["完了", "Closed", "クローズ"],
+        description="チケットを完了とみなすステータス名のリスト",
+    )
 
 
 class DateConfig(BaseModel):

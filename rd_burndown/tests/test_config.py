@@ -104,6 +104,23 @@ class TestConfig:
         assert "colors" in data["chart"]
         assert "line_styles" in data["chart"]
 
+    def test_data_config_completed_statuses(self):
+        """データ設定 - 完了ステータス設定"""
+        from rd_burndown.utils.config import DataConfig
+
+        # デフォルト値のテスト
+        data_config = DataConfig()
+        assert data_config.completed_statuses == ["完了", "Closed", "クローズ"]
+
+        # カスタム値のテスト
+        custom_statuses = ["解決", "Done", "終了"]
+        data_config = DataConfig(completed_statuses=custom_statuses)
+        assert data_config.completed_statuses == custom_statuses
+
+        # 空リストのテスト
+        data_config = DataConfig(completed_statuses=[])
+        assert data_config.completed_statuses == []
+
 
 class TestConfigManager:
     """ConfigManager のテスト"""

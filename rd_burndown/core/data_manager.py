@@ -569,12 +569,12 @@ class DataManager:
             return result["status_name"] if result else None
 
     def _is_ticket_completed(self, status_name: Optional[str]) -> bool:
-        """ステータス名から完了判定（Closedのみを完了とする）"""
+        """ステータス名から完了判定（設定で定義された完了ステータスを使用）"""
         if not status_name:
             return False
 
-        # 完了ステータスの名前（Closedのみ）
-        completed_statuses = ["完了", "Closed", "クローズ"]
+        # 設定から完了ステータスのリストを取得
+        completed_statuses = self.config.data.completed_statuses
         return status_name in completed_statuses
 
     def _detect_scope_changes(
